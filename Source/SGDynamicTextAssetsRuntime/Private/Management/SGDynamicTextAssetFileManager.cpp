@@ -196,6 +196,13 @@ void FSGDynamicTextAssetFileManager::FindAllDynamicTextAssetFiles(TArray<FString
     // Find registered extension files
     TArray<FString> extensions;
     GetAllRegisteredExtensions(extensions);
+
+    UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("FindAllDynamicTextAssetFiles: Scanning RootPath(%s) with %d registered extension(s)"), *rootPath, extensions.Num());
+    for (const FString& ext : extensions)
+    {
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("  Registered extension: %s"), *ext);
+    }
+
     for (const FString& ext : extensions)
     {
         TArray<FString> extFiles;
@@ -206,6 +213,8 @@ void FSGDynamicTextAssetFileManager::FindAllDynamicTextAssetFiles(TArray<FString
     TArray<FString> binaryFiles;
     fileManager.FindFilesRecursive(binaryFiles, *rootPath, *(TEXT("*") + BINARY_EXTENSION), true, false);
     OutFilePaths.Append(binaryFiles);
+
+    UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("FindAllDynamicTextAssetFiles: Found %d total file(s)"), OutFilePaths.Num());
 }
 
 FString FSGDynamicTextAssetFileManager::ExtractUserFacingIdFromPath(const FString& FilePath)
@@ -353,7 +362,7 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
                 if (FJsonSerializer::Deserialize(reader, jsonObject) && jsonObject.IsValid())
                 {
                     jsonObject->TryGetStringField(TEXT("$type"), metadata.ClassName);
-                    jsonObject->TryGetStringField(TEXT("UserFacingId"), metadata.UserFacingId);
+                    jsonObject->TryGetStringField(ISGDynamicTextAssetSerializer::KEY_USER_FACING_ID, metadata.UserFacingId);
                 }
             }
         }
@@ -420,7 +429,7 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
     }
 
     // Extract UserFacingId from JSON, fall back to filename
-    jsonObject->TryGetStringField(TEXT("UserFacingId"), metadata.UserFacingId);
+    jsonObject->TryGetStringField(ISGDynamicTextAssetSerializer::KEY_USER_FACING_ID, metadata.UserFacingId);
 
     if (metadata.UserFacingId.IsEmpty())
     {

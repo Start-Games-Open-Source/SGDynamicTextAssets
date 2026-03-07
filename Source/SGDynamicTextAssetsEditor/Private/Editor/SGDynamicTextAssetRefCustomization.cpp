@@ -154,6 +154,9 @@ void FSGDynamicTextAssetRefCustomization::CustomizeChildren(TSharedRef<IProperty
 
 TSharedRef<SWidget> FSGDynamicTextAssetRefCustomization::GeneratePickerMenu()
 {
+	// Re-scan files each time the dropdown opens so newly created/deleted DTAs are reflected
+	RebuildPickerEntries();
+
 	return SNew(SBox)
 		.MinDesiredWidth(300.0f)
 		.MaxDesiredHeight(400.0f)
@@ -242,12 +245,15 @@ void FSGDynamicTextAssetRefCustomization::RebuildPickerEntries()
 	TArray<FString> filePaths;
 	FSGDynamicTextAssetFileManager::FindAllDynamicTextAssetFiles(filePaths);
 
+	UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("RebuildPickerEntries: FindAllDynamicTextAssetFiles returned %d file(s)"), filePaths.Num());
+
 	// Build picker entries from file metadata
 	for (const FString& filePath : filePaths)
 	{
 		FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
 		if (!metadata.bIsValid)
 		{
+			UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("RebuildPickerEntries: Skipping invalid metadata for FilePath(%s)"), *filePath);
 			continue;
 		}
 

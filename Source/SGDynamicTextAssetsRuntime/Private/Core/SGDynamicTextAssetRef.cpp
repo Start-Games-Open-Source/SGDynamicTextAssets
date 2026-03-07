@@ -2,12 +2,16 @@
 
 #include "Core/SGDynamicTextAssetRef.h"
 
-#include "Core/SGDynamicTextAsset.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
 #include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "SGDynamicTextAssetsRuntimeModule.h"
 #include "Subsystem/SGDynamicTextAssetSubsystem.h"
+
+#if WITH_EDITOR
+#include "Management/SGDynamicTextAssetEditorCache.h"
+#endif
 
 bool FSGDynamicTextAssetRef::IsNull() const
 {
@@ -87,23 +91,23 @@ TScriptInterface<ISGDynamicTextAssetProvider> FSGDynamicTextAssetRef::Get(const 
     }
 
     const UWorld* world = WorldContextObject->GetWorld();
-    if (!world)
+    const UGameInstance* gameInstance = world ? world->GetGameInstance() : nullptr;
+    if (gameInstance)
     {
-        return TScriptInterface<ISGDynamicTextAssetProvider>();
+        return Get(gameInstance);
     }
 
-    const UGameInstance* gameInstance = world->GetGameInstance();
-    if (!gameInstance)
-    {
-        return TScriptInterface<ISGDynamicTextAssetProvider>();
-    }
-
-    return Get(gameInstance);
+#if WITH_EDITOR
+    // No GameInstance available (editor non-PIE context) — check editor cache (cache-only, no loading)
+    return FSGDynamicTextAssetEditorCache::Get().GetDynamicTextAsset(Id);
+#else
+    return TScriptInterface<ISGDynamicTextAssetProvider>();
+#endif
 }
 
-void FSGDynamicTextAssetRef::LoadAsync(const UGameInstance* GameInstance, const FString& FilePath, TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider>, bool)> OnComplete) const
+void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject, TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider>, bool)> OnComplete) const
 {
-    if (!Id.IsValid() || !GameInstance || FilePath.IsEmpty())
+    if (!Id.IsValid())
     {
         if (OnComplete)
         {
@@ -112,35 +116,62 @@ void FSGDynamicTextAssetRef::LoadAsync(const UGameInstance* GameInstance, const 
         return;
     }
 
-    USGDynamicTextAssetSubsystem* subsystem = GameInstance->GetSubsystem<USGDynamicTextAssetSubsystem>();
-    if (!subsystem)
-    {
-        if (OnComplete)
-        {
-            OnComplete(TScriptInterface<ISGDynamicTextAssetProvider>(), false);
-        }
-        return;
-    }
+    // Try to get the GameInstance for the normal subsystem path
+    const UWorld* world = WorldContextObject ? WorldContextObject->GetWorld() : nullptr;
+    const UGameInstance* gameInstance = world ? world->GetGameInstance() : nullptr;
 
-    // Check if already cached
-    TScriptInterface<ISGDynamicTextAssetProvider> cached = subsystem->GetDynamicTextAsset(Id);
-    if (cached.GetObject())
+    if (gameInstance)
     {
-        if (OnComplete)
-        {
-            OnComplete(cached, true);
-        }
-        return;
-    }
-
-    subsystem->LoadDynamicTextAssetFromFileAsync(FilePath, USGDynamicTextAsset::StaticClass(),
-        FOnDynamicTextAssetLoaded::CreateLambda([OnComplete](const TScriptInterface<ISGDynamicTextAssetProvider>& Provider, bool bSuccess)
+        USGDynamicTextAssetSubsystem* subsystem = gameInstance->GetSubsystem<USGDynamicTextAssetSubsystem>();
+        if (!subsystem)
         {
             if (OnComplete)
             {
-                OnComplete(Provider, bSuccess);
+                OnComplete(TScriptInterface<ISGDynamicTextAssetProvider>(), false);
             }
-        }));
+            return;
+        }
+
+        // Check if already cached
+        TScriptInterface<ISGDynamicTextAssetProvider> cached = subsystem->GetDynamicTextAsset(Id);
+        if (cached.GetObject())
+        {
+            if (OnComplete)
+            {
+                OnComplete(cached, true);
+            }
+            return;
+        }
+
+        // Load asynchronously via the subsystem (resolves file path from ID internally)
+        subsystem->LoadDynamicTextAssetAsync(Id, nullptr,
+            FOnDynamicTextAssetLoaded::CreateLambda(
+                [OnComplete](const TScriptInterface<ISGDynamicTextAssetProvider>& Provider, bool bSuccess)
+            {
+                if (OnComplete)
+                {
+                    OnComplete(Provider, bSuccess);
+                }
+            }));
+        return;
+    }
+
+    // No GameInstance
+#if WITH_EDITOR
+    // Editor non-PIE fallback
+    TScriptInterface<ISGDynamicTextAssetProvider> result = FSGDynamicTextAssetEditorCache::Get().LoadDynamicTextAsset(Id);
+    if (OnComplete)
+    {
+        OnComplete(result, result.GetObject() != nullptr);
+    }
+#else
+    UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
+        TEXT("FSGDynamicTextAssetRef::LoadAsync: No GameInstance available for Id(%s)"), *Id.ToString());
+    if (OnComplete)
+    {
+        OnComplete(TScriptInterface<ISGDynamicTextAssetProvider>(), false);
+    }
+#endif
 }
 
 bool FSGDynamicTextAssetRef::operator==(const FSGDynamicTextAssetRef& Other) const

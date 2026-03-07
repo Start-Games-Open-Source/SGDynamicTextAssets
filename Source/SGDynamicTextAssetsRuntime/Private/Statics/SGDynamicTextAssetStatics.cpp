@@ -12,6 +12,10 @@
 #include "Subsystem/SGDynamicTextAssetSubsystem.h"
 #include "Engine/GameInstance.h"
 
+#if WITH_EDITOR
+#include "Management/SGDynamicTextAssetEditorCache.h"
+#endif
+
 namespace SGDynamicTextAssetStaticsInternal
 {
 	USGDynamicTextAssetSubsystem* GetSubsystem(const UObject* WorldContextObject)
@@ -51,7 +55,11 @@ bool USGDynamicTextAssetStatics::IsDynamicTextAssetRefLoaded(const UObject* Worl
 	USGDynamicTextAssetSubsystem* subsystem = SGDynamicTextAssetStaticsInternal::GetSubsystem(WorldContextObject);
 	if (!subsystem)
 	{
+#if WITH_EDITOR
+		return FSGDynamicTextAssetEditorCache::Get().IsCached(Ref.GetId());
+#else
 		return false;
+#endif
 	}
 
 	return subsystem->IsDynamicTextAssetCached(Ref.GetId());
@@ -112,7 +120,12 @@ void USGDynamicTextAssetStatics::LoadDynamicTextAssetRefAsync(const UObject* Wor
 	USGDynamicTextAssetSubsystem* subsystem = SGDynamicTextAssetStaticsInternal::GetSubsystem(WorldContextObject);
 	if (!subsystem)
 	{
+#if WITH_EDITOR
+		TScriptInterface<ISGDynamicTextAssetProvider> result = FSGDynamicTextAssetEditorCache::Get().LoadDynamicTextAsset(Ref.GetId());
+		OnLoaded.ExecuteIfBound(result, result.GetObject() != nullptr);
+#else
 		OnLoaded.ExecuteIfBound(TScriptInterface<ISGDynamicTextAssetProvider>(), false);
+#endif
 		return;
 	}
 
@@ -153,7 +166,11 @@ bool USGDynamicTextAssetStatics::UnloadDynamicTextAssetRef(const UObject* WorldC
 	USGDynamicTextAssetSubsystem* subsystem = SGDynamicTextAssetStaticsInternal::GetSubsystem(WorldContextObject);
 	if (!subsystem)
 	{
+#if WITH_EDITOR
+		return FSGDynamicTextAssetEditorCache::Get().RemoveFromCache(Ref.GetId());
+#else
 		return false;
+#endif
 	}
 	return subsystem->RemoveFromCache(Ref.GetId());
 }

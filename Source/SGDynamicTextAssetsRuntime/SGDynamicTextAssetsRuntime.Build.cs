@@ -38,5 +38,10 @@ public class SGDynamicTextAssetsRuntime : ModuleRules
             "Projects",
             "SlateCore",
         });
+
+        if (Target.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.Add("UnrealEd");
+        }
     }
 }

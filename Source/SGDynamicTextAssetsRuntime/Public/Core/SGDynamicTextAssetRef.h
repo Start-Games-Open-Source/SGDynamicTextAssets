@@ -110,12 +110,14 @@ public:
 
     /**
      * Loads this reference asynchronously if not already cached.
-     * 
-     * @param GameInstance The game instance to get the subsystem from
-     * @param FilePath The file path to load from
+     * The file path is resolved automatically from the ID.
+     * In editor non-PIE contexts (no GameInstance), falls back to synchronous
+     * loading via FSGDynamicTextAssetEditorCache and invokes the callback immediately.
+     *
+     * @param WorldContextObject Any UObject with a valid world (or editor context)
      * @param OnComplete Callback when loading completes
      */
-    void LoadAsync(const UGameInstance* GameInstance, const FString& FilePath, TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider>, bool)> OnComplete) const;
+    void LoadAsync(const UObject* WorldContextObject, TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider> /*Provider*/, bool/*bSuccess*/)> OnComplete) const;
 
     bool operator==(const FSGDynamicTextAssetRef& Other) const;
     bool operator!=(const FSGDynamicTextAssetRef& Other) const;

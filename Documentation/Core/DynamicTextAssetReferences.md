@@ -54,10 +54,11 @@ UWeaponData* weapon = WeaponRef.Get<UWeaponData>(this);
 
 ### Async Loading
 
-If the referenced dynamic text asset may not be loaded yet, use `LoadAsync` to load it on demand:
+If the referenced dynamic text asset may not be loaded yet, use `LoadAsync` to load it on demand.
+The file path is resolved automatically from the ID:
 
 ```cpp
-WeaponRef.LoadAsync(GetGameInstance(), FilePath,
+WeaponRef.LoadAsync(this,
     [](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess)
     {
         if (bSuccess)

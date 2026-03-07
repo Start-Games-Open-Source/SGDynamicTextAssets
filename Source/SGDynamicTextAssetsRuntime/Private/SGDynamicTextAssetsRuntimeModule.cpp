@@ -10,6 +10,10 @@
 #include "Serialization/SGDynamicTextAssetYamlSerializer.h"
 #include "Statics/SGDynamicTextAssetSlateStyles.h"
 
+#if WITH_EDITOR
+#include "Management/SGDynamicTextAssetEditorCache.h"
+#endif
+
 DEFINE_LOG_CATEGORY(LogSGDynamicTextAssetsRuntime);
 
 #define LOCTEXT_NAMESPACE "FSGDynamicTextAssetsRuntimeModule"
@@ -47,6 +51,10 @@ public:
         FSGDynamicTextAssetFileManager::UnregisterSerializer<FSGDynamicTextAssetYamlSerializer>();
         FSGDynamicTextAssetFileManager::UnregisterSerializer<FSGDynamicTextAssetXmlSerializer>();
         FSGDynamicTextAssetFileManager::UnregisterSerializer<FSGDynamicTextAssetJsonSerializer>();
+
+#if WITH_EDITOR
+        FSGDynamicTextAssetEditorCache::TearDown();
+#endif
 
         // Deregister slate styles
         FSGDynamicTextAssetSlateStyles::Shutdown();
