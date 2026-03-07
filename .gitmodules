@@ -1,0 +1,3 @@
+[submodule "Source/ThirdParty/fkYAML"]
+	path = Source/ThirdParty/fkYAML
+	url = https://github.com/Start-Games-Open-Source/fkYAML.git
