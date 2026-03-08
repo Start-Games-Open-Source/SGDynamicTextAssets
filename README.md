@@ -6,18 +6,18 @@ Example Project: https://github.com/Start-Games-Open-Source/Example_SGDTA
 
 ## Key Features
 
-- **Text files as source of truth** — Human-readable JSON (`.dta.json`), XML (`.dta.xml`), or YAML (`.dta.yaml`) files
-- **Stable GUID identity** — Every asset has an `FSGDynamicTextAssetId` that never changes, surviving renames, moves, and refactors
-- **Runtime immutability** — Assets are read-only at runtime, simplifying caching and data flow
-- **Interface-driven design** — `ISGDynamicTextAssetProvider` defines the core contract; `USGDynamicTextAsset` is the default base class
-- **Soft references only** — `FSGDynamicTextAssetRef` stores a GUID, resolved lazily at runtime. Hard references are prohibited at compile time by a UHT validator
-- **Semantic versioning** — Major.Minor.Patch versioning with automatic migration on breaking changes
-- **Editor tooling** — Browser, inline editor, reference viewer, property customizations, source control integration
-- **Server integration** — Optional backend override layer for live data (hot-fixes, A/B testing)
-- **Binary cook pipeline** — Compresses assets to `.dta.bin` with a binary manifest (`dta_manifest.bin`) for O(1) lookups in packaged builds
-- **Automatic cook inclusion** — Soft-referenced assets in DTAs are automatically included in packaged builds via `ModifyCook` delegate
-- **Blueprint support** — `USGDynamicTextAssetStatics` function library exposes common operations to Blueprints
-- **Validation framework** — File-level, data-level, and reference validation with custom hooks
+- **Text files as source of truth**: Human-readable JSON (`.dta.json`), XML (`.dta.xml`), or YAML (`.dta.yaml`) files
+- **Stable GUID identity**: Every asset has an `FSGDynamicTextAssetId` that never changes, surviving renames, moves, and refactors
+- **Runtime immutability**: Assets are read-only at runtime, simplifying caching and data flow
+- **Interface-driven design**: `ISGDynamicTextAssetProvider` defines the core contract; `USGDynamicTextAsset` is the default base class
+- **Soft references only**: `FSGDynamicTextAssetRef` stores a GUID, resolved lazily at runtime. Hard references are prohibited at compile time by a UHT validator
+- **Semantic versioning**: Major.Minor.Patch versioning with automatic migration on breaking changes
+- **Editor tooling**: Browser, inline editor, reference viewer, property customizations, source control integration
+- **Server integration**: Optional backend override layer for live data (hot-fixes, A/B testing)
+- **Binary cook pipeline**: Compresses assets to `.dta.bin` with a binary manifest (`dta_manifest.bin`) for O(1) lookups in packaged builds
+- **Automatic cook inclusion**: Soft-referenced assets in DTAs are automatically included in packaged builds via `ModifyCook` delegate
+- **Blueprint support**: `USGDynamicTextAssetStatics` function library exposes common operations to Blueprints
+- **Validation framework**: File-level, data-level, and reference validation with custom hooks
 
 ## Quick Start
 
@@ -162,11 +162,11 @@ The plugin is split into two modules:
 
 ### Design Principles
 
-- **Text files as source of truth** — JSON/XML/YAML files are authoritative during development
-- **GUID identity** — `FSGDynamicTextAssetId` is permanent; `UserFacingId` is human-readable and renameable
-- **Runtime immutability** — Read-only at runtime, editable only in the editor
-- **Soft references only** — No hard asset references; compile-time enforcement via UHT validator
-- **Semantic versioning** — Major.Minor.Patch with built-in migration for breaking changes
+- **Text files as source of truth**: JSON/XML/YAML files are authoritative during development
+- **GUID identity**: `FSGDynamicTextAssetId` is permanent; `UserFacingId` is human-readable and renameable
+- **Runtime immutability**: Read-only at runtime, editable only in the editor
+- **Soft references only**: No hard asset references; compile-time enforcement via UHT validator
+- **Semantic versioning**: Major.Minor.Patch with built-in migration for breaking changes
 
 ## Plugin Structure
 
