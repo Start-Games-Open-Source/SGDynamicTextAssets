@@ -2,6 +2,8 @@
 
 Dynamic text asset configuration system for static game data in Unreal Engine. Provides external file storage similar to Primary Data Assets with runtime loading, editor tooling, server integration, and a binary cook pipeline for packaged builds.
 
+Example Project: https://github.com/Start-Games-Open-Source/Example_SGDTA
+
 ## Key Features
 
 - **Text files as source of truth** — Human-readable JSON (`.dta.json`), XML (`.dta.xml`), or YAML (`.dta.yaml`) files
