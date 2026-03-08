@@ -105,6 +105,9 @@ public:
         // Subscribe to cook delegate for automatic dynamic text asset cooking during packaging
         CookStartedHandle = UE::Cook::FDelegates::CookStarted.AddRaw(this, &FSGDynamicTextAssetsEditorModule::OnCookStarted);
 
+        // Subscribe to ModifyCook delegate to ensure DTA soft references are included in cooked builds
+        ModifyCookHandle = UE::Cook::FDelegates::ModifyCook.AddRaw(this, &FSGDynamicTextAssetsEditorModule::OnModifyCook);
+
         // Register the cooked dynamic text assets directory for staging into packaged builds
         RegisterCookedDirectoryForStaging();
 
@@ -126,8 +129,9 @@ public:
     {
         UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("SGDynamicTextAssetsEditor module shutdown"));
 
-        // Unsubscribe from cook delegate
+        // Unsubscribe from cook delegates
         UE::Cook::FDelegates::CookStarted.Remove(CookStartedHandle);
+        UE::Cook::FDelegates::ModifyCook.Remove(ModifyCookHandle);
 
         // Unregister TCommands singletons
         FSGDynamicTextAssetEditorCommands::Unregister();
@@ -319,6 +323,29 @@ private:
     }
 
     /**
+     * Callback invoked during CollectFilesToCook to add soft-referenced packages from DTA files.
+     * Scans all DTA files, deserializes them, walks properties to find TSoftObjectPtr/TSoftClassPtr
+     * references, and adds those packages to the cook via FPackageCookRule.
+     */
+    void OnModifyCook(UE::Cook::ICookInfo& CookInfo, TArray<UE::Cook::FPackageCookRule>& InOutPackageCookRules)
+    {
+        TArray<FName> packageNames;
+        int32 count = FSGDynamicTextAssetCookUtils::GatherSoftReferencesFromAllFiles(packageNames);
+
+        for (const FName& packageName : packageNames)
+        {
+            UE::Cook::FPackageCookRule rule;
+            rule.PackageName = packageName;
+            rule.CookRule = UE::Cook::EPackageCookRule::AddToCook;
+            rule.InstigatorName = FName(TEXT("SGDynamicTextAssets"));
+            InOutPackageCookRules.Add(rule);
+        }
+
+        UE_LOG(LogSGDynamicTextAssetsEditor, Log,
+            TEXT("Added %d soft-referenced packages to cook from DTA files"), count);
+    }
+
+    /**
      * Checks if cooked binary files are tracked by source control and warns the user.
      * These are generated artifacts and should be excluded via .gitignore.
      */
@@ -428,6 +455,9 @@ private:
 
     /** Handle for the cook started delegate subscription */
     FDelegateHandle CookStartedHandle;
+
+    /** Handle for the ModifyCook delegate subscription (soft reference cook inclusion) */
+    FDelegateHandle ModifyCookHandle;
 };
 
 #undef LOCTEXT_NAMESPACE

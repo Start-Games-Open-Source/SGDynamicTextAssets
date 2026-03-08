@@ -510,3 +510,171 @@ FString FSGDynamicTextAssetCookUtils::GetCookedOutputRootPath()
 {
 	return FSGDynamicTextAssetFileManager::GetCookedDynamicTextAssetsRootPath();
 }
+
+void FSGDynamicTextAssetCookUtils::GatherSoftReferencesFromProperty(const FProperty* Property, const void* ContainerPtr, TSet<FName>& OutPackageNames)
+{
+	if (!Property || !ContainerPtr)
+	{
+		return;
+	}
+
+	if (const FSoftObjectProperty* softObjProp = CastField<FSoftObjectProperty>(Property))
+	{
+		const void* valuePtr = softObjProp->ContainerPtrToValuePtr<void>(ContainerPtr);
+		if (const FSoftObjectPtr* softPtr = static_cast<const FSoftObjectPtr*>(valuePtr))
+		{
+			FSoftObjectPath path = softPtr->ToSoftObjectPath();
+			if (path.IsValid() && !path.IsNull())
+			{
+				FName packageName = path.GetLongPackageFName();
+				if (!packageName.IsNone())
+				{
+					FString packageStr = packageName.ToString();
+					if (!packageStr.StartsWith(TEXT("/Script/")))
+					{
+						OutPackageNames.Add(packageName);
+					}
+				}
+			}
+		}
+		return;
+	}
+
+	if (const FSoftClassProperty* softClassProp = CastField<FSoftClassProperty>(Property))
+	{
+		const void* valuePtr = softClassProp->ContainerPtrToValuePtr<void>(ContainerPtr);
+		if (const FSoftObjectPtr* softPtr = static_cast<const FSoftObjectPtr*>(valuePtr))
+		{
+			FSoftObjectPath path = softPtr->ToSoftObjectPath();
+			if (path.IsValid() && !path.IsNull())
+			{
+				FName packageName = path.GetLongPackageFName();
+				if (!packageName.IsNone())
+				{
+					FString packageStr = packageName.ToString();
+					if (!packageStr.StartsWith(TEXT("/Script/")))
+					{
+						OutPackageNames.Add(packageName);
+					}
+				}
+			}
+		}
+		return;
+	}
+
+	if (const FStructProperty* structProp = CastField<FStructProperty>(Property))
+	{
+		const void* structPtr = structProp->ContainerPtrToValuePtr<void>(ContainerPtr);
+		for (TFieldIterator<FProperty> innerIt(structProp->Struct); innerIt; ++innerIt)
+		{
+			GatherSoftReferencesFromProperty(*innerIt, structPtr, OutPackageNames);
+		}
+		return;
+	}
+
+	if (const FArrayProperty* arrayProp = CastField<FArrayProperty>(Property))
+	{
+		const void* arrayPtr = arrayProp->ContainerPtrToValuePtr<void>(ContainerPtr);
+		FScriptArrayHelper arrayHelper(arrayProp, arrayPtr);
+
+		for (int32 index = 0; index < arrayHelper.Num(); ++index)
+		{
+			GatherSoftReferencesFromProperty(arrayProp->Inner, arrayHelper.GetRawPtr(index), OutPackageNames);
+		}
+		return;
+	}
+
+	if (const FMapProperty* mapProp = CastField<FMapProperty>(Property))
+	{
+		const void* mapPtr = mapProp->ContainerPtrToValuePtr<void>(ContainerPtr);
+		FScriptMapHelper mapHelper(mapProp, mapPtr);
+
+		for (FScriptMapHelper::FIterator it = mapHelper.CreateIterator(); it; ++it)
+		{
+			GatherSoftReferencesFromProperty(mapProp->KeyProp, mapHelper.GetKeyPtr(it.GetInternalIndex()), OutPackageNames);
+			GatherSoftReferencesFromProperty(mapProp->ValueProp, mapHelper.GetValuePtr(it.GetInternalIndex()), OutPackageNames);
+		}
+	}
+}
+
+int32 FSGDynamicTextAssetCookUtils::GatherSoftReferencesFromAllFiles(TArray<FName>& OutPackageNames)
+{
+	OutPackageNames.Reset();
+
+	TArray<FString> allFiles;
+	FSGDynamicTextAssetFileManager::FindAllDynamicTextAssetFiles(allFiles);
+
+	if (allFiles.IsEmpty())
+	{
+		return 0;
+	}
+
+	TSet<FName> uniquePackages;
+	int32 filesProcessed = 0;
+
+	for (const FString& filePath : allFiles)
+	{
+		// Extract metadata to get class name
+		FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
+		if (!metadata.bIsValid || metadata.ClassName.IsEmpty())
+		{
+			continue;
+		}
+
+		// Resolve class
+		UClass* resolvedClass = FindFirstObject<UClass>(*metadata.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
+		if (!resolvedClass)
+		{
+			continue;
+		}
+
+		// Create transient instance
+		UObject* tempObject = NewObject<UObject>(GetTransientPackage(), resolvedClass);
+		if (!tempObject)
+		{
+			continue;
+		}
+
+		// Find serializer and deserialize
+		TSharedPtr<ISGDynamicTextAssetSerializer> serializer = FSGDynamicTextAssetFileManager::FindSerializerForFile(filePath);
+		if (!serializer.IsValid())
+		{
+			continue;
+		}
+
+		FString fileContents;
+		if (!FSGDynamicTextAssetFileManager::ReadRawFileContents(filePath, fileContents))
+		{
+			continue;
+		}
+
+		TScriptInterface<ISGDynamicTextAssetProvider> provider(tempObject);
+		if (!provider.GetInterface())
+		{
+			continue;
+		}
+
+		bool bMigrated = false;
+		if (!serializer->DeserializeProvider(fileContents, provider.GetInterface(), bMigrated))
+		{
+			continue;
+		}
+
+		// Walk all properties to gather soft references
+		for (TFieldIterator<FProperty> propertyIt(resolvedClass); propertyIt; ++propertyIt)
+		{
+			GatherSoftReferencesFromProperty(*propertyIt, tempObject, uniquePackages);
+		}
+
+		filesProcessed++;
+	}
+
+	// Convert set to output array
+	OutPackageNames = uniquePackages.Array();
+
+	UE_LOG(LogSGDynamicTextAssetsEditor, Log,
+		TEXT("FSGDynamicTextAssetCookUtils: Gathered %d unique soft reference(s) from %d/%d DTA file(s)"),
+		uniquePackages.Num(), filesProcessed, allFiles.Num());
+
+	return uniquePackages.Num();
+}

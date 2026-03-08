@@ -96,4 +96,29 @@ public:
 	 * @return Absolute path to Content/SGDynamicTextAssetsCooked/
 	 */
 	static FString GetCookedOutputRootPath();
+
+	/**
+	 * Scans all DTA files and gathers soft object/class references from their properties.
+	 * Used during cook to ensure referenced assets are included in packaged builds.
+	 *
+	 * Deserializes each DTA into a transient UObject and recursively walks all UProperties
+	 * to find FSoftObjectPath and FSoftClassPath values. Skips empty paths and /Script/ paths
+	 * (native classes are always available).
+	 *
+	 * @param OutPackageNames Deduplicated package names (e.g., "/Game/Weapons/Sword")
+	 * @return Number of unique packages found
+	 */
+	static int32 GatherSoftReferencesFromAllFiles(TArray<FName>& OutPackageNames);
+
+private:
+
+	/**
+	 * Recursively walks a property and collects soft object/class reference package names.
+	 * Handles FSoftObjectProperty, FSoftClassProperty, FStructProperty, FArrayProperty, FMapProperty.
+	 *
+	 * @param Property The property to inspect
+	 * @param ContainerPtr Pointer to the struct/object containing this property
+	 * @param OutPackageNames Set to collect unique package names into
+	 */
+	static void GatherSoftReferencesFromProperty(const FProperty* Property, const void* ContainerPtr, TSet<FName>& OutPackageNames);
 };
