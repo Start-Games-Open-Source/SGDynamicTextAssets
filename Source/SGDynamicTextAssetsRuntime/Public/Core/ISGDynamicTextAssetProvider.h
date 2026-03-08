@@ -8,6 +8,7 @@
 #include "Core/SGDynamicTextAssetVersion.h"
 #include "Core/SGDynamicTextAssetValidationResult.h"
 #include "Dom/JsonObject.h"
+#include "SGDynamicTextAssetDelegates.h"
 #include "UObject/Interface.h"
 
 #include "ISGDynamicTextAssetProvider.generated.h"
@@ -49,9 +50,6 @@ class SGDYNAMICTEXTASSETSRUNTIME_API ISGDynamicTextAssetProvider
 {
 	GENERATED_BODY()
 public:
-
-	/** Delegate broadcast when a dynamic text asset is modified in the editor */
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnDynamicTextAssetChanged, TScriptInterface<ISGDynamicTextAssetProvider> /*ChangedObject*/);
 
 	/** Returns the unique dynamic text asset ID for this provider. */
 	virtual const FSGDynamicTextAssetId& GetDynamicTextAssetId() const = 0;
@@ -145,27 +143,27 @@ public:
 	virtual void BroadcastDynamicTextAssetChanged();
 
 	/** Retrieves the delegate for when this dynamic text asset is modified in the editor. */
-	FOnDynamicTextAssetChanged& GetOnDynamicTextAssetChanged() { return OnDynamicTextAssetChanged; }
+	FOnDynamicTextAssetProvider_Multi& GetOnDynamicTextAssetChanged() { return OnDynamicTextAssetChanged; }
 
 	/** Retrieves the delegate for when this dynamic text asset's ID is modified in the editor. */
-	FOnDynamicTextAssetChanged& GetOnDynamicTextAssetIdChanged() { return OnDynamicTextAssetIdChanged; }
+	FOnDynamicTextAssetProvider_Multi& GetOnDynamicTextAssetIdChanged() { return OnDynamicTextAssetIdChanged; }
 	/** Retrieves the delegate for when this dynamic text asset User Facing ID is modified in the editor. */
-	FOnDynamicTextAssetChanged& GetOnUserFacingIdChanged() { return OnUserFacingIdChanged; }
+	FOnDynamicTextAssetProvider_Multi& GetOnUserFacingIdChanged() { return OnUserFacingIdChanged; }
 	/** Retrieves the delegate for when this dynamic text asset Version is modified in the editor. */
-	FOnDynamicTextAssetChanged& GetOnVersionChanged() { return OnVersionChanged; }
+	FOnDynamicTextAssetProvider_Multi& GetOnVersionChanged() { return OnVersionChanged; }
 #endif
 
 protected:
 
 #if WITH_EDITOR
 	/** Delegate broadcast when this dynamic text asset is modified in the editor. */
-	FOnDynamicTextAssetChanged OnDynamicTextAssetChanged;
+	FOnDynamicTextAssetProvider_Multi OnDynamicTextAssetChanged;
 
 	/** Delegate broadcast when this dynamic text asset's ID is modified in the editor. */
-	FOnDynamicTextAssetChanged OnDynamicTextAssetIdChanged;
+	FOnDynamicTextAssetProvider_Multi OnDynamicTextAssetIdChanged;
 	/** Delegate broadcast when this dynamic text asset's User Facing ID is modified in the editor. */
-	FOnDynamicTextAssetChanged OnUserFacingIdChanged;
+	FOnDynamicTextAssetProvider_Multi OnUserFacingIdChanged;
 	/** Delegate broadcast when this dynamic text asset's Version is modified in the editor. */
-	FOnDynamicTextAssetChanged OnVersionChanged;
+	FOnDynamicTextAssetProvider_Multi OnVersionChanged;
 #endif
 };

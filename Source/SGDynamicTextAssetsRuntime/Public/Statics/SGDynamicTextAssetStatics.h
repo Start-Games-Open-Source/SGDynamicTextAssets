@@ -10,15 +10,13 @@
 #include "Core/SGDynamicTextAssetTypeId.h"
 #include "Core/ISGDynamicTextAssetProvider.h"
 #include "Serialization/SGDynamicTextAssetSerializer.h"
+#include "SGDynamicTextAssetDelegates.h"
 
 #include "SGDynamicTextAssetStatics.generated.h"
 
 struct FSGDynamicTextAssetValidationResult;
 
 class USGDynamicTextAsset;
-
-/** Delegate for async dynamic text asset load completion */
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnDynamicTextAssetRefLoaded, const TScriptInterface<ISGDynamicTextAssetProvider>&, LoadedProvider, bool, bSuccess);
 
 /**
  * Blueprint function library for working with FSGDynamicTextAssetRef.

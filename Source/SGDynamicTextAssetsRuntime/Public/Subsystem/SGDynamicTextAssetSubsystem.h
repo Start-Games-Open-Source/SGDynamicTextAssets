@@ -9,17 +9,12 @@
 #include "Server/ISGDynamicTextAssetServerInterface.h"
 #include "UObject/ScriptInterface.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "SGDynamicTextAssetDelegates.h"
 
 #include "SGDynamicTextAssetSubsystem.generated.h"
 
 class FJsonObject;
 class USGDynamicTextAsset;
-
-/** Delegate for async dynamic text asset load completion */
-DECLARE_DELEGATE_TwoParams(FOnDynamicTextAssetLoaded, const TScriptInterface<ISGDynamicTextAssetProvider>& /*LoadedProvider*/, bool /*bSuccess*/);
-
-/** Delegate for broadcasting when a dynamic text asset provider is loaded into cache */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDynamicTextAssetCached, const TScriptInterface<ISGDynamicTextAssetProvider>&, Provider);
 
 /**
  * Game Instance Subsystem for loading and caching dynamic text assets at runtime.
@@ -228,7 +223,7 @@ public:
 
     /** Broadcast when a dynamic text asset provider is added to cache */
     UPROPERTY(BlueprintAssignable, Category = "Dynamic Text Asset|Events")
-    FOnDynamicTextAssetCached OnDynamicTextAssetCached;
+    FOnDynamicTextAssetProvider_Dynamic_Multi OnDynamicTextAssetCached;
 
 protected:
 

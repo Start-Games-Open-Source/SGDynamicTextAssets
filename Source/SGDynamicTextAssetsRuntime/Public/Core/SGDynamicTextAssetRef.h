@@ -12,6 +12,63 @@
 class UGameInstance;
 class USGDynamicTextAssetSubsystem;
 
+/// Convenience macro for asynchronous loading of FSGDynamicTextAssetRef with automatic weak-pointer safety.
+///
+/// This macro simplifies the boilerplate of calling LoadAsync by:
+/// - Creating a weak pointer (`self`) to avoid dangling references if the object is destroyed during async load
+/// - Declaring the lambda with standard parameters: Provider (TScriptInterface<ISGDynamicTextAssetProvider>) and bSuccess (bool)
+/// - Supporting additional lambda captures via variadic arguments
+///
+/// @param DTA_Ref          The FSGDynamicTextAssetRef to load
+/// @param ContextObject    The UObject context (typically `this`), used for subsystem lookup and weak pointer creation
+/// @param FunctionDefinition The lambda body enclosed in braces { ... }
+/// @param ...              (Optional) Additional variables to capture in the lambda, comma-separated. Recommend using copies to avoid lifetime failures.
+///
+/// Usage Examples:
+///
+/// Basic usage - load a weapon info asset:
+///   SG_LOAD_REF_SIMPLE(WeaponTypeRef, this,
+///   {
+///       if (!self.IsValid() || !bSuccess)
+///       {
+///           return;
+///       }
+///
+///       if (UWeaponInfoDTA* Info = Cast<UWeaponInfoDTA>(Provider.GetObject()))
+///       {
+///           // Use the loaded asset
+///           WeaponClass = Info->WeaponToSpawn;
+///       }
+///   });
+///
+/// With additional captures - capture a local variable:
+///   int32 SlotIndex = 2;
+///   SG_LOAD_REF_SIMPLE(ItemRef, this,
+///   {
+///       if (!self.IsValid() || !bSuccess)
+///       {
+///           return;
+///       }
+///
+///       self->ProcessItem(Provider, SlotIndex);
+///   }, SlotIndex);
+///
+/// Multiple additional captures:
+///   SG_LOAD_REF_SIMPLE(QuestRef, this,
+///   {
+///       if (!self.IsValid() || !bSuccess)
+///       {
+///           return;
+///       }
+///
+///       self->OnQuestLoaded(QuestId, bIsMainQuest);
+///   }, QuestId, bIsMainQuest);
+#define SG_LOAD_REF_SIMPLE(DTA_Ref, ContextObject, FunctionDefinition, ...) \
+{ \
+    TWeakObjectPtr<ThisClass> self = ContextObject; \
+    DTA_Ref.LoadAsync(ContextObject, [self __VA_OPT__(,__VA_ARGS__)](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess) FunctionDefinition); \
+}
+
 /**
  * Lightweight reference to a dynamic text asset by ID.
  *
@@ -118,6 +175,26 @@ public:
      * @param OnComplete Callback when loading completes
      */
     void LoadAsync(const UObject* WorldContextObject, TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider> /*Provider*/, bool/*bSuccess*/)> OnComplete) const;
+    /**
+     * Loads this reference asynchronously if not already cached.
+     * The file path is resolved automatically from the ID.
+     * In editor non-PIE contexts (no GameInstance), falls back to synchronous
+     * loading via FSGDynamicTextAssetEditorCache and invokes the callback immediately.
+     *
+     * @param WorldContextObject Any UObject with a valid world (or editor context)
+     * @param OnComplete Callback when loading completes
+     */
+    void LoadAsync(const UObject* WorldContextObject, FOnDynamicTextAssetRefLoaded OnComplete) const;
+    /**
+     * Loads this reference asynchronously if not already cached.
+     * The file path is resolved automatically from the ID.
+     * In editor non-PIE contexts (no GameInstance), falls back to synchronous
+     * loading via FSGDynamicTextAssetEditorCache and invokes the callback immediately.
+     *
+     * @param WorldContextObject Any UObject with a valid world (or editor context)
+     * @param OnComplete Callback when loading completes
+     */
+    void LoadAsync(const UObject* WorldContextObject, FOnDynamicTextAssetLoaded OnComplete) const;
 
     bool operator==(const FSGDynamicTextAssetRef& Other) const;
     bool operator!=(const FSGDynamicTextAssetRef& Other) const;

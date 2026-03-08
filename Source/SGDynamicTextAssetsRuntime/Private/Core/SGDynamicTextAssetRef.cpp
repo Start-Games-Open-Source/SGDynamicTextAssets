@@ -174,6 +174,22 @@ void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject, TFunct
 #endif
 }
 
+void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject, FOnDynamicTextAssetRefLoaded OnComplete) const
+{
+    LoadAsync(WorldContextObject, [OnComplete](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess)
+    {
+        OnComplete.ExecuteIfBound(Provider, bSuccess);
+    });
+}
+
+void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject, FOnDynamicTextAssetLoaded OnComplete) const
+{
+    LoadAsync(WorldContextObject, [OnComplete](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess)
+    {
+        OnComplete.ExecuteIfBound(Provider, bSuccess);
+    });
+}
+
 bool FSGDynamicTextAssetRef::operator==(const FSGDynamicTextAssetRef& Other) const
 {
     return Id == Other.Id;
