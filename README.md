@@ -13,6 +13,7 @@ Dynamic text asset configuration system for static game data in Unreal Engine. P
 - **Editor tooling** — Browser, inline editor, reference viewer, property customizations, source control integration
 - **Server integration** — Optional backend override layer for live data (hot-fixes, A/B testing)
 - **Binary cook pipeline** — Compresses assets to `.dta.bin` with a binary manifest (`dta_manifest.bin`) for O(1) lookups in packaged builds
+- **Automatic cook inclusion** — Soft-referenced assets in DTAs are automatically included in packaged builds via `ModifyCook` delegate
 - **Blueprint support** — `USGDynamicTextAssetStatics` function library exposes common operations to Blueprints
 - **Validation framework** — File-level, data-level, and reference validation with custom hooks
 
@@ -141,14 +142,15 @@ The plugin is split into two modules:
 |  Reference Viewer (UI)        |       |  FSGDynamicTextAssetId        |
 |  Property Customizations      |       |  FSGDynamicTextAssetRef       |
 |  Source Control Utils         |       |  FSGDynamicTextAssetVersion   |
-|  Cook Pipeline                |       |  USGDynamicTextAssetSubsystem |
-|  Cook Commandlet              |       |  USGDynamicTextAssetRegistry  |
+|  Cook Pipeline & Utilities    |       |  USGDynamicTextAssetSubsystem |
+|  Cook/Validation Commandlets  |       |  USGDynamicTextAssetRegistry  |
 |  Editor Settings              |       |  FSGDynamicTextAssetFileManager|
 +-------------------------------+       |  JSON Serializer (TypeId=1)   |
                                         |  XML Serializer  (TypeId=2)   |
                                         |  YAML Serializer (TypeId=3)   |
                                         |  Binary Serializer            |
                                         |  Cook Manifest                |
+                                        |  Type Manifest                |
                                         |  Settings                     |
                                         |  Statics (BP)                 |
                                         |  Server Interface             |
@@ -184,9 +186,13 @@ SGDynamicTextAssets/
     SGDynamicTextAssetsEditor/                # Editor module
       Public/
         Browser/                              # Browser, type tree, tile view, dialogs
-        Editor/                               # Editor toolkit, raw view
+        Commandlets/                          # Cook and validation commandlets
         Customization/                        # Property customizations
+        Editor/                               # Editor toolkit, raw view
         ReferenceViewer/                      # Reference viewer
+        Settings/                             # Editor-specific settings
+        Utilities/                            # Cook utils, source control, editor helpers
+        Widgets/                              # Slate widget components (class picker)
       Private/
         Tests/                                # Automation tests
   Build/
@@ -216,6 +222,8 @@ UnrealEditor-Cmd.exe MyProject.uproject -run=SGDynamicTextAssetCook
 ```
 
 The cooked directory (`Content/SGDynamicTextAssetsCooked/`) is a generated artifact and should be added to `.gitignore`.
+
+Soft-referenced assets (`TSoftObjectPtr`, `TSoftClassPtr`) in DTAs are automatically included in cooked builds via the `UE::Cook::FDelegates::ModifyCook` delegate. This ensures assets referenced only by DTAs are not silently excluded from packaged builds.
 
 See [Cook Pipeline](Documentation/Serialization/CookPipeline.md) and [Cook Manifest](Documentation/Serialization/CookManifest.md) for details. See [Commandlets](Documentation/Reference/Commandlets.md) for full CLI reference.
 
