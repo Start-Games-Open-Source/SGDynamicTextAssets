@@ -188,6 +188,13 @@ After pak staging, the handler deletes:
 | `CustomDeployment` | `DefaultEngine.ini` under platform target settings | - | Set to `SGDynamicTextAssetsCleanup` to activate the handler |
 | `bDeleteCookedAssetsAfterPackaging` | `DefaultGame.ini` under `[SGDynamicTextAssets]` | `true` | Set to `false` to disable cleanup |
 
+Here is an example of what you would add into `DefaultEngine.ini` 
+if you wanted it to automatically cook out your DTA's to packaged builds.
+```ini
+[/Script/WindowsTargetPlatform.WindowsTargetSettings]
+CustomDeployment=SGDynamicTextAssetsCleanup
+```
+
 ### Platform Support
 
 The `CustomDeploymentHandler` mechanism currently supports one handler per platform target configuration. If the project requires an additional custom deployment handler alongside this one, a composite handler pattern would be needed to chain both handlers.
