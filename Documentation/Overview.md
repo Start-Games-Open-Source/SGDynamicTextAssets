@@ -52,8 +52,6 @@ Each dynamic text asset carries an `FSGDynamicTextAssetVersion` (Major.Minor.Pat
 
 ## Architecture
 
-@TODO Add image.
-
 ```
 +-------------------------------+       +-------------------------------+
 |   SGDynamicTextAssetsEditor   |       |   SGDynamicTextAssetsRuntime  |
