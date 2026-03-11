@@ -42,9 +42,10 @@ bool FSGDynamicTextAssetSerializerBase::ShouldSerializeProperty(const FProperty*
         return false;
     }
 
-    // Exclude deprecated properties from both serialization and deserialization.
+    // Exclude deprecated and transient properties from both serialization and deserialization.
     // If an existing file contains a value for a deprecated property, it is silently ignored.
-    if (Property->HasAnyPropertyFlags(CPF_Deprecated))
+    // Transient will be cleared because thats intentional so we dont need to serialize it out
+    if (Property->HasAnyPropertyFlags(CPF_Deprecated|CPF_Transient))
     {
         return false;
     }

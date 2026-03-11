@@ -24,6 +24,11 @@ bool FSGDynamicTextAssetValidationUtils::DetectHardReferenceProperties(const UCl
 		{
 			continue;
 		}
+		// Skip over depreacted and transient properties
+		if (property->HasAnyPropertyFlags(CPF_Deprecated|CPF_Transient))
+		{
+			continue;
+		}
 
 		// Skip properties declared on the boundary class or its ancestors.
 		// These are provider contract properties (DynamicTextAssetId, UserFacingId, Version, etc.).
