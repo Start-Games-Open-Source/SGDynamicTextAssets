@@ -6,6 +6,8 @@ Example Project: https://github.com/Start-Games-Open-Source/Example_SGDTA
 
 To provide feedback or see whats in development, visit the [Issues Page](https://github.com/Start-Games-Open-Source/SGDynamicTextAssets/issues) of the repo!
 
+Full documentation is in the [Documentation](Documentation/TableOfContents.md) folder and is included with the plugin.
+
 # License
 
 SGDynamicTextAssets is released under the **[Elastic License 2.0 (ELv2)](./LICENSE)** by **Start Games Open Source**.

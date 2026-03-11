@@ -8,8 +8,6 @@ A custom property editor for `FSGDynamicTextAssetRef` fields that replaces the d
 
 ### Picker Dropdown
 
-@TODO Add image.
-
 When an `FSGDynamicTextAssetRef` property is displayed in a Details panel, the customization shows:
 
 - A **searchable dropdown** listing all available dynamic text assets.

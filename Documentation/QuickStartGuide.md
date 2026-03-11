@@ -77,8 +77,6 @@ If `UWeaponData` is already registered and you create `USwordData : public UWeap
 
 ## 4. Create an Instance in the Browser
 
-@TODO Add image.
-
 1. Open the Dynamic Text Asset Browser from the toolbar or Window menu.
 2. Select your class (e.g., `WeaponData`) in the type tree on the left.
 3. Click **New** in the toolbar.
@@ -86,8 +84,6 @@ If `UWeaponData` is already registered and you create `USwordData : public UWeap
 5. A new `.dta.json` file is automatically created at `Content/SGDynamicTextAssets/WeaponData/excalibur.dta.json`.
 
 ## 5. Edit Properties
-
-@TODO Add image.
 
 Double-click the dynamic text asset in the browser to open the Dynamic Text Asset Editor. This shows a standard Unreal details panel with your UPROPERTY fields. Edit values and click **Save** to write changes to the file.
 
