@@ -37,7 +37,7 @@ These functions require a world context object to access the subsystem.
 |----------|------|-------------|
 | `IsDynamicTextAssetRefLoaded(WorldContext, Ref)` | Pure | Returns true if the referenced object is in cache |
 | `GetDynamicTextAsset(WorldContext, Ref)` | Pure | Resolves the reference to `TScriptInterface<ISGDynamicTextAssetProvider>`. Returns invalid interface if not cached. |
-| `LoadDynamicTextAssetRefAsync(WorldContext, Ref, OnLoaded, FilePath)` | Callable | Loads the referenced object asynchronously. `FilePath` is optional: if empty, the system searches by ID. |
+| `LoadDynamicTextAssetRefAsync(WorldContext, Ref, OnLoaded, BundleNames, FilePath)` | Callable | Loads the referenced object asynchronously. `BundleNames` is optional: when non-empty, bundle assets are also async-loaded before the callback fires. `FilePath` is optional: if empty, the system searches by ID. Delegates internally to `FSGDynamicTextAssetRef::LoadAsync`. |
 | `UnloadDynamicTextAssetRef(WorldContext, Ref)` | Callable | Removes the referenced object from cache |
 
 ## Collection Functions

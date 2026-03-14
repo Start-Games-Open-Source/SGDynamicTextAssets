@@ -2,7 +2,11 @@
 
 #include "Core/SGDynamicTextAssetRef.h"
 
+#include "Core/SGDynamicTextAssetBundleData.h"
+#include "Engine/AssetManager.h"
+#include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
+#include "Engine/StreamableManager.h"
 #include "Engine/World.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
 #include "Management/SGDynamicTextAssetFileMetadata.h"
@@ -105,7 +109,9 @@ TScriptInterface<ISGDynamicTextAssetProvider> FSGDynamicTextAssetRef::Get(const 
 #endif
 }
 
-void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject, TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider>, bool)> OnComplete) const
+void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject,
+    TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider>, bool)> OnComplete,
+    const TArray<FName>& BundleNames, const FString& FilePath) const
 {
     if (!Id.IsValid())
     {
@@ -116,54 +122,129 @@ void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject, TFunct
         return;
     }
 
-    // Try to get the GameInstance for the normal subsystem path
-    const UWorld* world = WorldContextObject ? WorldContextObject->GetWorld() : nullptr;
-    const UGameInstance* gameInstance = world ? world->GetGameInstance() : nullptr;
-
-    if (gameInstance)
+    // After the DTA loads, optionally async-load any requested bundle assets
+    // before invoking the caller's callback.
+    auto loadBundlesThenCallback = [](const TScriptInterface<ISGDynamicTextAssetProvider>& Provider, bool bSuccess,
+        TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider>, bool)> Callback,
+        const TArray<FName>& InBundleNames)
     {
-        USGDynamicTextAssetSubsystem* subsystem = gameInstance->GetSubsystem<USGDynamicTextAssetSubsystem>();
-        if (!subsystem)
+        if (!bSuccess || InBundleNames.IsEmpty() || !Provider.GetInterface())
         {
-            if (OnComplete)
+            if (Callback)
             {
-                OnComplete(TScriptInterface<ISGDynamicTextAssetProvider>(), false);
+                Callback(Provider, bSuccess);
             }
             return;
         }
 
-        // Check if already cached
-        TScriptInterface<ISGDynamicTextAssetProvider> cached = subsystem->GetDynamicTextAsset(Id);
-        if (cached.GetObject())
+        // Gather paths for all requested bundles
+        const FSGDynamicTextAssetBundleData& bundleData = Provider->GetSGDTAssetBundleData();
+
+        TArray<FSoftObjectPath> paths;
+        for (const FName& bundleName : InBundleNames)
         {
-            if (OnComplete)
+            bundleData.GetPathsForBundle(bundleName, paths);
+        }
+
+        if (paths.IsEmpty())
+        {
+            if (Callback)
             {
-                OnComplete(cached, true);
+                Callback(Provider, bSuccess);
             }
             return;
         }
 
-        // Load asynchronously via the subsystem (resolves file path from ID internally)
-        subsystem->LoadDynamicTextAssetAsync(Id, nullptr,
-            FOnDynamicTextAssetLoaded::CreateLambda(
-                [OnComplete](const TScriptInterface<ISGDynamicTextAssetProvider>& Provider, bool bSuccess)
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Verbose,
+            TEXT("FSGDynamicTextAssetRef::LoadAsync: Async-loading %d bundle asset(s) for DTA '%s'"),
+            paths.Num(), *GetNameSafe(Provider.GetObject()));
+
+        FStreamableManager& streamableManager = UAssetManager::Get().GetStreamableManager();
+        streamableManager.RequestAsyncLoad(paths,
+            FStreamableDelegate::CreateLambda([Provider, Callback = MoveTemp(Callback), paths]()
             {
-                if (OnComplete)
+#if !UE_BUILD_SHIPPING
+                // Validate each loaded object, only doing this on non-shipping builds
+                // so shipping builds can strip out unnecessary validation.
+                for (int32 i = 0; i < paths.Num(); ++i)
                 {
-                    OnComplete(Provider, bSuccess);
+                    UObject* resolved = paths[i].ResolveObject();
+                    if (!resolved)
+                    {
+                        UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                            TEXT("FSGDynamicTextAssetRef::LoadAsync: Bundle asset failed to resolve after async load - Path='%s'. "
+                                "Verify the asset is not a Blueprint (UBlueprint objects are stripped in packaged builds) "
+                                "and that it is referenced by at least one cooked UE asset."),
+                            *paths[i].ToString());
+                    }
+                }
+#endif
+                if (Callback)
+                {
+                    Callback(Provider, true);
                 }
             }));
-        return;
+    };
+
+    // Try to get the GameInstance for the normal subsystem path
+    if (const UWorld* world = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull))
+    {
+        if (const UGameInstance* gameInstance = world->GetGameInstance())
+        {
+            USGDynamicTextAssetSubsystem* subsystem = gameInstance->GetSubsystem<USGDynamicTextAssetSubsystem>();
+            if (!subsystem)
+            {
+                UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetRef::LoadAsync: "
+                    "NULL USGDynamicTextAssetSubsystem from gameInstance(%s)|world(%s)"),
+                    *GetNameSafe(gameInstance),
+                    *GetNameSafe(world));
+                if (OnComplete)
+                {
+                    OnComplete(TScriptInterface<ISGDynamicTextAssetProvider>(), false);
+                }
+                return;
+            }
+
+            // Check if already cached
+            TScriptInterface<ISGDynamicTextAssetProvider> cached = subsystem->GetDynamicTextAsset(Id);
+            if (cached.GetObject())
+            {
+                loadBundlesThenCallback(cached, true, MoveTemp(OnComplete), BundleNames);
+                return;
+            }
+
+            // Load asynchronously via the subsystem
+            if (FilePath.IsEmpty())
+            {
+                // ID-based search
+                subsystem->LoadDynamicTextAssetAsync(Id, nullptr,
+                    FOnDynamicTextAssetLoaded::CreateLambda(
+                        [OnComplete = MoveTemp(OnComplete), BundleNames, loadBundlesThenCallback]
+                        (const TScriptInterface<ISGDynamicTextAssetProvider>& Provider, bool bSuccess) mutable
+                    {
+                        loadBundlesThenCallback(Provider, bSuccess, MoveTemp(OnComplete), BundleNames);
+                    }));
+            }
+            else
+            {
+                // Load from explicit file path
+                subsystem->LoadDynamicTextAssetFromFileAsync(FilePath, nullptr,
+                    FOnDynamicTextAssetLoaded::CreateLambda(
+                        [OnComplete = MoveTemp(OnComplete), BundleNames, loadBundlesThenCallback]
+                        (const TScriptInterface<ISGDynamicTextAssetProvider>& Provider, bool bSuccess) mutable
+                    {
+                        loadBundlesThenCallback(Provider, bSuccess, MoveTemp(OnComplete), BundleNames);
+                    }));
+            }
+            return;
+        }
     }
 
     // No GameInstance
 #if WITH_EDITOR
-    // Editor non-PIE fallback
+    // Editor non-PIE fallback for tooling (synchronous)
     TScriptInterface<ISGDynamicTextAssetProvider> result = FSGDynamicTextAssetEditorCache::Get().LoadDynamicTextAsset(Id);
-    if (OnComplete)
-    {
-        OnComplete(result, result.GetObject() != nullptr);
-    }
+    loadBundlesThenCallback(result, result.GetObject() != nullptr, MoveTemp(OnComplete), BundleNames);
 #else
     UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
         TEXT("FSGDynamicTextAssetRef::LoadAsync: No GameInstance available for Id(%s)"), *Id.ToString());
@@ -174,20 +255,24 @@ void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject, TFunct
 #endif
 }
 
-void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject, FOnDynamicTextAssetRefLoaded OnComplete) const
+void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject,
+    FOnDynamicTextAssetRefLoaded OnComplete,
+    const TArray<FName>& BundleNames, const FString& FilePath) const
 {
     LoadAsync(WorldContextObject, [OnComplete](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess)
     {
         OnComplete.ExecuteIfBound(Provider, bSuccess);
-    });
+    }, BundleNames, FilePath);
 }
 
-void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject, FOnDynamicTextAssetLoaded OnComplete) const
+void FSGDynamicTextAssetRef::LoadAsync(const UObject* WorldContextObject,
+    FOnDynamicTextAssetLoaded OnComplete,
+    const TArray<FName>& BundleNames, const FString& FilePath) const
 {
     LoadAsync(WorldContextObject, [OnComplete](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess)
     {
         OnComplete.ExecuteIfBound(Provider, bSuccess);
-    });
+    }, BundleNames, FilePath);
 }
 
 bool FSGDynamicTextAssetRef::operator==(const FSGDynamicTextAssetRef& Other) const

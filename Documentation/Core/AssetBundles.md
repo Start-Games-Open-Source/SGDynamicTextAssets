@@ -168,14 +168,50 @@ virtual bool HasSGDTAssetBundles() const;
 
 ## Loading Bundles at Runtime
 
-The subsystem provides bundle-aware async loading via `FStreamableManager`:
+### Via FSGDynamicTextAssetRef (Recommended)
 
-### Load a Single DTA's Bundle
+The simplest way to load a DTA with its bundles is through `FSGDynamicTextAssetRef::LoadAsync`. Pass bundle names as the third parameter, and the callback fires only after both the DTA and all requested bundle assets are ready:
+
+```cpp
+TArray<FName> bundles = { FName("Visual"), FName("Audio") };
+WeaponRef.LoadAsync(this,
+    [this](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess)
+    {
+        if (bSuccess)
+        {
+            UWeaponData* weapon = Cast<UWeaponData>(Provider.GetObject());
+            // Bundle assets are loaded - safe to dereference soft pointers
+            UStaticMesh* mesh = weapon->MeshAsset.Get();
+        }
+    },
+    bundles);
+```
+
+Or use the `SG_LOAD_REF_WITH_BUNDLES` convenience macro:
+
+```cpp
+TArray<FName> bundles = { FName("Visual") };
+SG_LOAD_REF_WITH_BUNDLES(WeaponRef, this, bundles,
+{
+    if (!self.IsValid() || !bSuccess) return;
+    // Use loaded provider...
+});
+```
+
+The Blueprint statics function `LoadDynamicTextAssetRefAsync` delegates to this same implementation.
+
+See [Dynamic Text Asset References](DynamicTextAssetReferences.md#async-loading) for full usage details and macro documentation.
+
+### Via Subsystem (Direct Control)
+
+The subsystem provides lower-level bundle-aware async loading via `FStreamableManager` for cases where you need direct control over bundle loading independently of DTA loading:
+
+#### Load a Single DTA's Bundle
 
 ```cpp
 USGDynamicTextAssetSubsystem* Subsystem = GetGameInstance()->GetSubsystem<USGDynamicTextAssetSubsystem>();
 
-// Load all "Visual" assets for a specific weapon
+// Load all "Visual" assets for a specific weapon (DTA must already be cached)
 Subsystem->LoadSGDTAssetBundle(WeaponId, FName("Visual"),
     FStreamableDelegate::CreateLambda([this]()
     {
@@ -184,7 +220,7 @@ Subsystem->LoadSGDTAssetBundle(WeaponId, FName("Visual"),
     }));
 ```
 
-### Load a Bundle Across All Cached DTAs
+#### Load a Bundle Across All Cached DTAs
 
 ```cpp
 // Pre-load all "Audio" assets across every cached DTA
@@ -198,7 +234,7 @@ int32 Count = Subsystem->LoadSGDTAssetBundleForAll(FName("Audio"),
 UE_LOG(LogGame, Log, TEXT("Loading Audio bundle for %d DTAs"), Count);
 ```
 
-### Query Bundle Data
+#### Query Bundle Data
 
 ```cpp
 // Get bundle data for a specific DTA

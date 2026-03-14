@@ -14,14 +14,16 @@ class USGDynamicTextAssetSubsystem;
 
 /// Convenience macro for asynchronous loading of FSGDynamicTextAssetRef with automatic weak-pointer safety.
 ///
+/// See SG_LOAD_REF_WITH_BUNDLES macro for the version with AssetBundles.
+///
 /// This macro simplifies the boilerplate of calling LoadAsync by:
 /// - Creating a weak pointer (`self`) to avoid dangling references if the object is destroyed during async load
 /// - Declaring the lambda with standard parameters: Provider (TScriptInterface<ISGDynamicTextAssetProvider>) and bSuccess (bool)
 /// - Supporting additional lambda captures via variadic arguments
 ///
-/// @param DTA_Ref          The FSGDynamicTextAssetRef to load
-/// @param ContextObject    The UObject context (typically `this`), used for subsystem lookup and weak pointer creation
-/// @param FunctionDefinition The lambda body enclosed in braces { ... }
+/// @param DTA_Ref          The FSGDynamicTextAssetRef to load.
+/// @param ContextObject    The UObject context (typically `this`), used for subsystem lookup and weak pointer creation.
+/// @param FunctionDefinition The lambda body enclosed in braces { ... }.
 /// @param ...              (Optional) Additional variables to capture in the lambda, comma-separated. Recommend using copies to avoid lifetime failures.
 ///
 /// Usage Examples:
@@ -67,6 +69,40 @@ class USGDynamicTextAssetSubsystem;
 { \
     TWeakObjectPtr<ThisClass> self = ContextObject; \
     DTA_Ref.LoadAsync(ContextObject, [self __VA_OPT__(,__VA_ARGS__)](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess) FunctionDefinition); \
+}
+
+/// Convenience macro for bundle-aware asynchronous loading of FSGDynamicTextAssetRef.
+///
+/// Same as SG_LOAD_REF_SIMPLE but also async-loads the specified asset bundles before
+/// invoking the callback. The callback only fires after both the DTA and all requested
+/// bundle assets are done loading and ready.
+///
+/// @param DTA_Ref              The FSGDynamicTextAssetRef to load.
+/// @param ContextObject        The UObject context (typically `this`), used for subsystem lookup and weak pointer creation.
+/// @param BundleNames          TArray<FName> of bundle names to async-load after the DTA is cached.
+/// @param FunctionDefinition   The lambda body enclosed in braces { ... }.
+/// @param ...                  (Optional) Additional variables to capture in the lambda, comma-separated. Recommend using copies to avoid lifetime failures.
+///
+/// Usage Example:
+///
+///   TArray<FName> bundles = { FName("Visual"), FName("Audio") };
+///   SG_LOAD_REF_WITH_BUNDLES(WeaponRef, this, bundles,
+///   {
+///       if (!self.IsValid() || !bSuccess)
+///       {
+///           return;
+///       }
+///
+///       if (UWeaponInfoDTA* Info = Cast<UWeaponInfoDTA>(Provider.GetObject()))
+///       {
+///           // Bundle assets are already loaded and resolved
+///           WeaponMesh = Info->WeaponMesh.Get();
+///       }
+///   });
+#define SG_LOAD_REF_WITH_BUNDLES(DTA_Ref, ContextObject, BundleNames, FunctionDefinition, ...) \
+{ \
+    TWeakObjectPtr<ThisClass> self = ContextObject; \
+    DTA_Ref.LoadAsync(ContextObject, [self __VA_OPT__(,__VA_ARGS__)](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess) FunctionDefinition, BundleNames); \
 }
 
 /**
@@ -167,34 +203,51 @@ public:
 
     /**
      * Loads this reference asynchronously if not already cached.
-     * The file path is resolved automatically from the ID.
+     * The file path is resolved automatically from the ID unless FilePath is provided.
      * In editor non-PIE contexts (no GameInstance), falls back to synchronous
      * loading via FSGDynamicTextAssetEditorCache and invokes the callback immediately.
      *
-     * @param WorldContextObject Any UObject with a valid world (or editor context)
-     * @param OnComplete Callback when loading completes
+     * When BundleNames is non-empty, the referenced assets for those bundles
+     * are also async-loaded before the callback fires. The callback is only
+     * invoked once both the DTA and all requested bundle assets are ready.
+     *
+     * @param WorldContextObject Any UObject with a valid world (or editor context).
+     * @param OnComplete Callback when loading completes.
+     * @param BundleNames Bundle names to async-load after the DTA is cached. Empty loads no bundles.
+     * @param FilePath File path to load from. If empty, the system searches for the file using the ID.
      */
-    void LoadAsync(const UObject* WorldContextObject, TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider> /*Provider*/, bool/*bSuccess*/)> OnComplete) const;
+    void LoadAsync(const UObject* WorldContextObject,
+        TFunction<void(TScriptInterface<ISGDynamicTextAssetProvider> /*Provider*/, bool/*bSuccess*/)> OnComplete,
+        const TArray<FName>& BundleNames = TArray<FName>(),
+        const FString& FilePath = FString()) const;
+
     /**
      * Loads this reference asynchronously if not already cached.
-     * The file path is resolved automatically from the ID.
-     * In editor non-PIE contexts (no GameInstance), falls back to synchronous
-     * loading via FSGDynamicTextAssetEditorCache and invokes the callback immediately.
+     * Delegate version of LoadAsync for FOnDynamicTextAssetRefLoaded.
      *
-     * @param WorldContextObject Any UObject with a valid world (or editor context)
-     * @param OnComplete Callback when loading completes
+     * @param WorldContextObject Any UObject with a valid world (or editor context).
+     * @param OnComplete Callback when loading completes.
+     * @param BundleNames Bundle names to async-load after the DTA is cached. Empty loads no bundles.
+     * @param FilePath File path to load from. If empty, the system searches for the file using the ID.
      */
-    void LoadAsync(const UObject* WorldContextObject, FOnDynamicTextAssetRefLoaded OnComplete) const;
+    void LoadAsync(const UObject* WorldContextObject,
+        FOnDynamicTextAssetRefLoaded OnComplete,
+        const TArray<FName>& BundleNames = TArray<FName>(),
+        const FString& FilePath = FString()) const;
+
     /**
      * Loads this reference asynchronously if not already cached.
-     * The file path is resolved automatically from the ID.
-     * In editor non-PIE contexts (no GameInstance), falls back to synchronous
-     * loading via FSGDynamicTextAssetEditorCache and invokes the callback immediately.
+     * Delegate version of LoadAsync for FOnDynamicTextAssetLoaded.
      *
-     * @param WorldContextObject Any UObject with a valid world (or editor context)
-     * @param OnComplete Callback when loading completes
+     * @param WorldContextObject Any UObject with a valid world (or editor context).
+     * @param OnComplete Callback when loading completes.
+     * @param BundleNames Bundle names to async-load after the DTA is cached. Empty loads no bundles.
+     * @param FilePath File path to load from. If empty, the system searches for the file using the ID.
      */
-    void LoadAsync(const UObject* WorldContextObject, FOnDynamicTextAssetLoaded OnComplete) const;
+    void LoadAsync(const UObject* WorldContextObject,
+        FOnDynamicTextAssetLoaded OnComplete,
+        const TArray<FName>& BundleNames = TArray<FName>(),
+        const FString& FilePath = FString()) const;
 
     bool operator==(const FSGDynamicTextAssetRef& Other) const;
     bool operator!=(const FSGDynamicTextAssetRef& Other) const;

@@ -68,6 +68,74 @@ WeaponRef.LoadAsync(this,
     });
 ```
 
+#### Bundle-Aware Async Loading
+
+`LoadAsync` supports optional `BundleNames` and `FilePath` parameters. When `BundleNames` is non-empty, the callback only fires after both the DTA and all requested bundle assets are loaded:
+
+```cpp
+TArray<FName> bundles = { FName("Visual"), FName("Audio") };
+WeaponRef.LoadAsync(this,
+    [](TScriptInterface<ISGDynamicTextAssetProvider> Provider, bool bSuccess)
+    {
+        if (bSuccess)
+        {
+            UWeaponData* weapon = Cast<UWeaponData>(Provider.GetObject());
+            // Bundle assets are already loaded and resolved
+            UStaticMesh* mesh = weapon->MeshAsset.Get();
+        }
+    },
+    bundles);
+```
+
+If you already know the file path, pass it via `FilePath` to skip the ID-based file search:
+
+```cpp
+WeaponRef.LoadAsync(this, OnComplete, bundles, TEXT("/Game/Data/Weapons/SomeWeapon.dta.json"));
+```
+
+See [Asset Bundles](AssetBundles.md) for full details on tagging properties and the bundle system.
+
+#### Convenience Macros
+
+Two macros simplify common async loading patterns with automatic weak-pointer safety:
+
+**`SG_LOAD_REF_SIMPLE`** - Basic async load without bundles:
+
+```cpp
+SG_LOAD_REF_SIMPLE(WeaponRef, this,
+{
+    if (!self.IsValid() || !bSuccess)
+    {
+        return;
+    }
+
+    if (UWeaponData* Data = Cast<UWeaponData>(Provider.GetObject()))
+    {
+        WeaponClass = Data->WeaponToSpawn;
+    }
+});
+```
+
+**`SG_LOAD_REF_WITH_BUNDLES`** - Async load with bundle support:
+
+```cpp
+TArray<FName> bundles = { FName("Visual") };
+SG_LOAD_REF_WITH_BUNDLES(WeaponRef, this, bundles,
+{
+    if (!self.IsValid() || !bSuccess)
+    {
+        return;
+    }
+
+    if (UWeaponData* Data = Cast<UWeaponData>(Provider.GetObject()))
+    {
+        WeaponMesh = Data->MeshAsset.Get();
+    }
+});
+```
+
+Both macros create a `TWeakObjectPtr<ThisClass> self` capture to prevent dangling references if the owning object is destroyed during the async load. Additional captures can be passed as variadic arguments after the lambda body.
+
 ### Validity and State
 
 ```cpp
@@ -153,7 +221,7 @@ See [Property Customizations](../Editor/PropertyCustomizations.md) for details.
 - `SetDynamicTextAssetRefById(Ref, Id)`: Set the ID on a reference.
 - `ClearDynamicTextAssetRef(Ref)`: Reset to invalid state.
 - `GetDynamicTextAssetRefUserFacingId(Ref)`: Dynamically resolves the user-facing ID via file metadata lookup.
-- `LoadDynamicTextAssetRefAsync(WorldContext, Ref, OnLoaded)`: Async load.
+- `LoadDynamicTextAssetRefAsync(WorldContext, Ref, OnLoaded, BundleNames, FilePath)`: Async load with optional bundle and file path support. Delegates to `FSGDynamicTextAssetRef::LoadAsync` internally.
 
 See [Blueprint Statics](../Runtime/BlueprintStatics.md) for the full list.
 
