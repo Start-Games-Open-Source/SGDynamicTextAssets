@@ -139,9 +139,13 @@ private:
 	 * @param InheritedBundleNames Optional bundle names inherited from a parent container
 	 *        property (e.g., TArray or TMap tagged with AssetBundles). When non-empty,
 	 *        inner soft references use these names instead of requiring their own metadata.
+	 * @param OwnerClassName The UClass or UScriptStruct name that owns this property.
+	 *        Used to qualify PropertyName entries as "OwnerClass.PropertyName" so that
+	 *        same-named properties from different types are distinguishable in serialized output.
 	 */
 	void ExtractBundlesFromProperty(const FProperty* Property, const void* ContainerPtr,
-		const TArray<FString>& InheritedBundleNames = TArray<FString>());
+		const TArray<FString>& InheritedBundleNames = TArray<FString>(),
+		FName OwnerClassName = NAME_None);
 #endif
 
 	/**

@@ -74,9 +74,10 @@ void FSGDynamicTextAssetBundleData::ExtractFromObject(const UObject* Object)
 	// In editor builds, re-extract bundle data from live property metadata.
 	// Reset first to clear any stale data before re-extraction.
 	Reset();
+	const FName rootClassName = Object->GetClass()->GetFName();
 	for (TFieldIterator<FProperty> itr(Object->GetClass()); itr; ++itr)
 	{
-		ExtractBundlesFromProperty(*itr, Object);
+		ExtractBundlesFromProperty(*itr, Object, TArray<FString>(), rootClassName);
 	}
 #else
 	// Property metadata (HasMetaData/GetMetaData) is stripped in non-editor builds.
@@ -116,7 +117,8 @@ static bool ParseBundleNamesFromProperty(const FProperty* Property, TArray<FStri
 void FSGDynamicTextAssetBundleData::ExtractBundlesFromProperty(
 	const FProperty* Property,
 	const void* ContainerPtr,
-	const TArray<FString>& InheritedBundleNames)
+	const TArray<FString>& InheritedBundleNames,
+	FName OwnerClassName)
 {
 	if (!Property || !ContainerPtr)
 	{
@@ -132,9 +134,10 @@ void FSGDynamicTextAssetBundleData::ExtractBundlesFromProperty(
 			const void* valuePtr = objectProp->ContainerPtrToValuePtr<void>(ContainerPtr);
 			if (const UObject* subObject = objectProp->GetObjectPropertyValue(valuePtr))
 			{
+				const FName subObjectClassName = subObject->GetClass()->GetFName();
 				for (TFieldIterator<FProperty> innerIt(subObject->GetClass()); innerIt; ++innerIt)
 				{
-					ExtractBundlesFromProperty(*innerIt, subObject);
+					ExtractBundlesFromProperty(*innerIt, subObject, TArray<FString>(), subObjectClassName);
 				}
 			}
 		}
@@ -177,9 +180,11 @@ void FSGDynamicTextAssetBundleData::ExtractBundlesFromProperty(
 			return;
 		}
 
+		const FName qualifiedName = FName(*FString::Printf(TEXT("%s.%s"), *OwnerClassName.ToString(), *Property->GetName()));
+
 		for (const FString& name : bundleNames)
 		{
-			AddEntryToBundle(FName(*name), path, Property->GetFName());
+			AddEntryToBundle(FName(*name), path, qualifiedName);
 		}
 		return;
 	}
@@ -218,9 +223,11 @@ void FSGDynamicTextAssetBundleData::ExtractBundlesFromProperty(
 			return;
 		}
 
+		const FName qualifiedName = FName(*FString::Printf(TEXT("%s.%s"), *OwnerClassName.ToString(), *Property->GetName()));
+
 		for (const FString& name : bundleNames)
 		{
-			AddEntryToBundle(FName(*name), path, Property->GetFName());
+			AddEntryToBundle(FName(*name), path, qualifiedName);
 		}
 		return;
 	}
@@ -229,9 +236,10 @@ void FSGDynamicTextAssetBundleData::ExtractBundlesFromProperty(
 	if (const FStructProperty* structProp = CastField<FStructProperty>(Property))
 	{
 		const void* structPtr = structProp->ContainerPtrToValuePtr<void>(ContainerPtr);
+		const FName structTypeName = structProp->Struct->GetFName();
 		for (TFieldIterator<FProperty> innerIt(structProp->Struct); innerIt; ++innerIt)
 		{
-			ExtractBundlesFromProperty(*innerIt, structPtr);
+			ExtractBundlesFromProperty(*innerIt, structPtr, TArray<FString>(), structTypeName);
 		}
 		return;
 	}
@@ -248,7 +256,7 @@ void FSGDynamicTextAssetBundleData::ExtractBundlesFromProperty(
 		for (int32 index = 0; index < arrayHelper.Num(); ++index)
 		{
 			const void* elementPtr = arrayHelper.GetRawPtr(index);
-			ExtractBundlesFromProperty(arrayProp->Inner, elementPtr, containerBundleNames);
+			ExtractBundlesFromProperty(arrayProp->Inner, elementPtr, containerBundleNames, OwnerClassName);
 		}
 		return;
 	}
@@ -268,8 +276,8 @@ void FSGDynamicTextAssetBundleData::ExtractBundlesFromProperty(
 			// have internal offsets within the pair layout, so ContainerPtrToValuePtr
 			// applies that offset once. Using GetKeyPtr/GetValuePtr would double-offset.
 			const uint8* pairPtr = mapHelper.GetPairPtr(itr.GetInternalIndex());
-			ExtractBundlesFromProperty(mapProp->KeyProp, pairPtr, containerBundleNames);
-			ExtractBundlesFromProperty(mapProp->ValueProp, pairPtr, containerBundleNames);
+			ExtractBundlesFromProperty(mapProp->KeyProp, pairPtr, containerBundleNames, OwnerClassName);
+			ExtractBundlesFromProperty(mapProp->ValueProp, pairPtr, containerBundleNames, OwnerClassName);
 		}
 		return;
 	}
@@ -286,7 +294,7 @@ void FSGDynamicTextAssetBundleData::ExtractBundlesFromProperty(
 		for (FScriptSetHelper::FIterator itr = setHelper.CreateIterator(); itr; ++itr)
 		{
 			const void* elementPtr = setHelper.GetElementPtr(itr.GetInternalIndex());
-			ExtractBundlesFromProperty(setProp->ElementProp, elementPtr, containerBundleNames);
+			ExtractBundlesFromProperty(setProp->ElementProp, elementPtr, containerBundleNames, OwnerClassName);
 		}
 	}
 }

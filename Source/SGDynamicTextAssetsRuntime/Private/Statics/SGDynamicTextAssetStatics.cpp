@@ -592,7 +592,7 @@ void USGDynamicTextAssetStatics::ValidateSoftPathsInProperty(const FProperty* Pr
         return;
     }
 
-    auto validateAssetPath = [&OutResult, &PropertyPath](const FSoftObjectPath& AssetPath)
+    auto validateAssetPath = [&OutResult, &PropertyPath](const FSoftObjectPath& AssetPath, bool bIsSoftClassProperty)
     {
         if (AssetPath.IsValid() && !AssetPath.IsNull())
         {
@@ -635,12 +635,11 @@ void USGDynamicTextAssetStatics::ValidateSoftPathsInProperty(const FProperty* Pr
                     INVTEXT("The asset referenced by this soft path could not be found in the Asset Registry. It may have been deleted, moved, or renamed.")
                 );
             }
-            else
+            else if (!bIsSoftClassProperty)
             {
-                // Check if the referenced asset is a UBlueprint type. UBlueprint objects are
-                // stripped during cooking, so TSoftObjectPtr references to them will resolve
-                // to null in packaged builds. Use TSoftClassPtr for Blueprint class references
-                // or reference a non-Blueprint asset instead.
+                // Only warn about UBlueprint references for TSoftObjectPtr properties.
+                // TSoftClassPtr references resolve to the Blueprint's generated class (_C suffix),
+                // which survives cooking and works correctly in packaged builds.
                 if (assetData.IsInstanceOf<UBlueprint>())
                 {
                     OutResult.AddWarning(
@@ -676,22 +675,22 @@ void USGDynamicTextAssetStatics::ValidateSoftPathsInProperty(const FProperty* Pr
         }
     }
 
-    if (const FSoftObjectProperty* softObjProp = CastField<FSoftObjectProperty>(Property))
-    {
-        const void* valuePtr = softObjProp->ContainerPtrToValuePtr<void>(ContainerPtr);
-        if (const FSoftObjectPtr* softPtr = static_cast<const FSoftObjectPtr*>(valuePtr))
-        {
-            validateAssetPath(softPtr->ToSoftObjectPath());
-        }
-        return;
-    }
-
     if (const FSoftClassProperty* softClassProp = CastField<FSoftClassProperty>(Property))
     {
         const void* valuePtr = softClassProp->ContainerPtrToValuePtr<void>(ContainerPtr);
         if (const FSoftObjectPtr* softPtr = static_cast<const FSoftObjectPtr*>(valuePtr))
         {
-            validateAssetPath(softPtr->ToSoftObjectPath());
+            validateAssetPath(softPtr->ToSoftObjectPath(), true);
+        }
+        return;
+    }
+
+    if (const FSoftObjectProperty* softObjProp = CastField<FSoftObjectProperty>(Property))
+    {
+        const void* valuePtr = softObjProp->ContainerPtrToValuePtr<void>(ContainerPtr);
+        if (const FSoftObjectPtr* softPtr = static_cast<const FSoftObjectPtr*>(valuePtr))
+        {
+            validateAssetPath(softPtr->ToSoftObjectPath(), false);
         }
         return;
     }
