@@ -39,7 +39,7 @@ All identity fields are nested under a `"metadata"` object at the root level, al
 
 | Field | Key | Type | Description |
 |-------|-----|------|-------------|
-| Type | `type` | String | The UClass name including prefix (e.g., `"UWeaponData"`) |
+| Type | `type` | String | The `FSGDynamicTextAssetTypeId` GUID when available (preferred), or the UClass name including prefix as a fallback (e.g., `"UWeaponData"`) |
 | Version | `version` | String | Semantic version in `"Major.Minor.Patch"` format |
 | ID | `id` | String | The unique identifier in standard GUID format (maps to `FSGDynamicTextAssetId`) |
 | User Facing ID | `userfacingid` | String | Human-readable identifier for display and lookups |
@@ -119,16 +119,18 @@ The `sgdtAssetBundles` object uses bundle names as keys. Each key maps to an arr
   "data": { ... },
   "sgdtAssetBundles": {
     "Visual": [
-      { "property": "MeshAsset", "path": "/Game/Weapons/Meshes/Sword.Sword" },
-      { "property": "ImpactMaterial", "path": "/Game/Weapons/Materials/ImpactMat.ImpactMat" }
+      { "property": "UWeaponData.MeshAsset", "path": "/Game/Weapons/Meshes/Sword.Sword" },
+      { "property": "UWeaponData.ImpactMaterial", "path": "/Game/Weapons/Materials/ImpactMat.ImpactMat" }
     ],
     "Audio": [
-      { "property": "ImpactMaterial", "path": "/Game/Weapons/Materials/ImpactMat.ImpactMat" },
-      { "property": "FireSound", "path": "/Game/Audio/Weapons/FireSFX.FireSFX" }
+      { "property": "UWeaponData.ImpactMaterial", "path": "/Game/Weapons/Materials/ImpactMat.ImpactMat" },
+      { "property": "UWeaponData.FireSound", "path": "/Game/Audio/Weapons/FireSFX.FireSFX" }
     ]
   }
 }
 ```
+
+The `property` field uses qualified `OwnerClass.PropertyName` format to disambiguate same-named properties from different types (e.g., a base class and an instanced sub-object).
 
 ### Behavior
 
@@ -136,7 +138,7 @@ The `sgdtAssetBundles` object uses bundle names as keys. Each key maps to an arr
 - Properties tagged with multiple bundles (e.g., `meta=(AssetBundles="Visual,Audio")`) appear in each named bundle.
 - Properties without the `AssetBundles` meta tag are not included.
 - Container properties (`TArray`, `TMap`, `TSet`) tagged with `AssetBundles` propagate their bundle names to inner soft reference elements.
-- During deserialization, the `sgdtAssetBundles` block is informational only. Runtime bundle data is always extracted from UPROPERTY meta tags after properties are populated.
+- During deserialization in **editor builds**, the `sgdtAssetBundles` block is informational only - bundle data is re-extracted from UPROPERTY meta tags after properties are populated. In **packaged builds**, this block is the primary source since property metadata is stripped.
 
 ### Extraction Without Full Deserialization
 

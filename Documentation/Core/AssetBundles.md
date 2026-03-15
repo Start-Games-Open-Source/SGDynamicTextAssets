@@ -123,7 +123,7 @@ A single soft reference entry within a bundle:
 | Field | Type | Description |
 |-------|------|-------------|
 | `AssetPath` | `FSoftObjectPath` | The soft reference path to the asset |
-| `PropertyName` | `FName` | The UPROPERTY name this entry was extracted from |
+| `PropertyName` | `FName` | Qualified property name in `OwnerClass.PropertyName` format (e.g., `UWeaponData.MeshAsset`). The owning class/struct prefix disambiguates same-named properties from different types. |
 
 ### FSGDynamicTextAssetBundle
 

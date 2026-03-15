@@ -44,7 +44,7 @@ The `<metadata>` element contains four child elements with the same keys used ac
 
 | Element | Description |
 |---------|-------------|
-| `<type>` | The UClass name including prefix (e.g., `UWeaponData`) |
+| `<type>` | The `FSGDynamicTextAssetTypeId` GUID when available (preferred), or the UClass name including prefix as a fallback (e.g., `UWeaponData`) |
 | `<version>` | Semantic version in `Major.Minor.Patch` format |
 | `<id>` | The unique identifier in standard GUID format |
 | `<userfacingid>` | Human-readable identifier for display and lookups |
@@ -159,12 +159,12 @@ Each bundle is represented as a `<bundle>` element with a `name` attribute. Entr
     <data> ... </data>
     <sgdtAssetBundles>
         <bundle name="Visual">
-            <entry property="MeshAsset" path="/Game/Weapons/Meshes/Sword.Sword"/>
-            <entry property="ImpactMaterial" path="/Game/Weapons/Materials/ImpactMat.ImpactMat"/>
+            <entry property="UWeaponData.MeshAsset" path="/Game/Weapons/Meshes/Sword.Sword"/>
+            <entry property="UWeaponData.ImpactMaterial" path="/Game/Weapons/Materials/ImpactMat.ImpactMat"/>
         </bundle>
         <bundle name="Audio">
-            <entry property="ImpactMaterial" path="/Game/Weapons/Materials/ImpactMat.ImpactMat"/>
-            <entry property="FireSound" path="/Game/Audio/Weapons/FireSFX.FireSFX"/>
+            <entry property="UWeaponData.ImpactMaterial" path="/Game/Weapons/Materials/ImpactMat.ImpactMat"/>
+            <entry property="UWeaponData.FireSound" path="/Game/Audio/Weapons/FireSFX.FireSFX"/>
         </bundle>
     </sgdtAssetBundles>
 </DynamicTextAsset>
@@ -176,7 +176,7 @@ Each bundle is represented as a `<bundle>` element with a `name` attribute. Entr
 - Properties tagged with multiple bundles (e.g., `meta=(AssetBundles="Visual,Audio")`) appear in each named bundle.
 - Properties without the `AssetBundles` meta tag are not included.
 - Container properties (`TArray`, `TMap`, `TSet`) tagged with `AssetBundles` propagate their bundle names to inner soft reference elements.
-- During deserialization, the `<sgdtAssetBundles>` element is informational only. Runtime bundle data is always extracted from UPROPERTY meta tags after properties are populated.
+- During deserialization in **editor builds**, the `<sgdtAssetBundles>` element is informational only - bundle data is re-extracted from UPROPERTY meta tags after properties are populated. In **packaged builds**, this element is the primary source since property metadata is stripped.
 
 ### Extraction Without Full Deserialization
 
