@@ -12,6 +12,11 @@ FString FSGDynamicTextAssetVersion::ToString() const
 	return FString::Printf(TEXT("%d.%d.%d"), Major, Minor, Patch);
 }
 
+FText FSGDynamicTextAssetVersion::ToText() const
+{
+	return FText::Format(INVTEXT("{0}.{1}.{2}"), Major, Minor, Patch);
+}
+
 int32 FSGDynamicTextAssetVersion::GetMajor() const
 {
 	return Major;

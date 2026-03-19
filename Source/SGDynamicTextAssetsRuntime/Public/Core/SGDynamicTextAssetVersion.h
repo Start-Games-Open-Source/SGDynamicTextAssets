@@ -34,6 +34,9 @@ public:
     /** Returns version as string in format "Major.Minor.Patch" */
     FString ToString() const;
 
+    /** Returns version as FText in format "Major.Minor.Patch" */
+    FText ToText() const;
+
     /**
      * Returns the major version within this struct.
      *
