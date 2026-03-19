@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Misc/NotifyHook.h"
 #include "Toolkits/AssetEditorToolkit.h"
+#include "Core/SGDynamicTextAssetVersion.h"
 #include "Editor/SGDynamicTextAssetEditorProxy.h"
 #include "EditorUndoClient.h"
 
@@ -201,6 +202,9 @@ private:
     TStrongObjectPtr<UObject> EditedDynamicTextAssetStrong = nullptr;
 
     TSharedPtr<SSGDynamicTextAssetRawView> RawView = nullptr;
+
+    /** Format version of the file as it was last loaded from disk. Used to detect upgrades on save. */
+    FSGDynamicTextAssetVersion LoadedFileFormatVersion;
 
     /** True when the in-memory state differs from the file on disk. */
     uint8 bHasUnsavedChanges : 1 = 0;

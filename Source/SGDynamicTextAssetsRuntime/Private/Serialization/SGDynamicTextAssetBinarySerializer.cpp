@@ -365,10 +365,8 @@ bool FSGDynamicTextAssetBinarySerializer::ConvertJsonFileToBinary(
 	}
 
 	// Extract ID and Asset Type ID
-	FSGDynamicTextAssetId id;
-	FString unusedClassName, unusedUserFacingId, unusedVersion;
-	FSGDynamicTextAssetTypeId assetTypeId;
-	if (!serializer->ExtractMetadata(fileContents, id, unusedClassName, unusedUserFacingId, unusedVersion, assetTypeId) || !id.IsValid())
+	FSGDynamicTextAssetFileMetadata binMeta;
+	if (!serializer->ExtractMetadata(fileContents, binMeta) || !binMeta.Id.IsValid())
 	{
 		UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetBinarySerializer: Failed to extract valid ID from (%s)"), *JsonFilePath);
 		return false;
@@ -376,9 +374,9 @@ bool FSGDynamicTextAssetBinarySerializer::ConvertJsonFileToBinary(
 
 	// Convert to binary, storing the serializer's type ID and asset type ID for routing on load
 	FSGBinaryEncodeParams params;
-	params.Id = id;
+	params.Id = binMeta.Id;
 	params.SerializerTypeId = serializer->GetSerializerTypeId();
-	params.AssetTypeId = assetTypeId;
+	params.AssetTypeId = binMeta.AssetTypeId;
 	params.CompressionMethod = CompressionMethod;
 
 	TArray<uint8> binaryData;

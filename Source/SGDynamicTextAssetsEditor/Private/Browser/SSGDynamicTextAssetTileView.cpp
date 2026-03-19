@@ -100,7 +100,8 @@ void SSGDynamicTextAssetTileView::SetItems(const TArray<TSharedPtr<FSGDynamicTex
         ListView->RequestListRefresh();
     }
 
-    UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Tile view updated with %d items (%d filtered)"), AllItems.Num(), FilteredItems.Num());
+    // Using verbose to avoid log spam
+    UE_LOG(LogSGDynamicTextAssetsEditor, Verbose, TEXT("Tile view updated with %d items (%d filtered)"), AllItems.Num(), FilteredItems.Num());
 }
 
 void SSGDynamicTextAssetTileView::ClearItems()

@@ -7,6 +7,8 @@
 #include "Core/SGDynamicTextAssetId.h"
 #include "Core/SGDynamicTextAssetTypeId.h"
 #include "Core/SGDynamicTextAssetBundleData.h"
+#include "Core/SGDynamicTextAssetVersion.h"
+#include "Management/SGDynamicTextAssetFileMetadata.h"
 
 struct FSlateBrush;
 class ISGDynamicTextAssetProvider;
@@ -75,6 +77,20 @@ public:
 	virtual uint32 GetSerializerTypeId() const = 0;
 
 	/**
+	 * Returns the current file format version for this serializer.
+	 * Each serializer tracks its own structural format version independently
+	 * from the asset data version (KEY_VERSION). When the serializer changes
+	 * how it writes files (new fields, renamed keys, changed structure),
+	 * this version is incremented.
+	 *
+	 * Files missing the format version field are assumed to be version 1.0.0
+	 * (pre-format-version files).
+	 *
+	 * @return The current file format version for this serializer
+	 */
+	virtual FSGDynamicTextAssetVersion GetFileFormatVersion() const = 0;
+
+	/**
 	 * Serializes a dynamic text asset provider to a string.
 	 *
 	 * @param Provider The dynamic text asset provider to serialize
@@ -103,22 +119,25 @@ public:
 	virtual bool ValidateStructure(const FString& InString, FString& OutErrorMessage) const = 0;
 
 	/**
-	 * Extracts metadata from a serialized string without full deserialization.
+	 * Extracts metadata from a serialized string into a struct without full deserialization.
 	 *
 	 * @param InString The serialized string
-	 * @param OutId Extracted dynamic text asset ID
-	 * @param OutClassName Extracted class name (or TypeId GUID string for new-format files)
-	 * @param OutUserFacingId Extracted user-facing ID
-	 * @param OutVersion Extracted version string
-	 * @param OutAssetTypeId Extracted asset type ID (invalid until serializers populate it)
+	 * @param OutMetadata Populated with extracted file metadata
 	 * @return True if extraction succeeded
 	 */
+	virtual bool ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const = 0;
+
+	/**
+	 * Extracts metadata from a serialized string without full deserialization.
+	 * @deprecated Use the FSGDynamicTextAssetFileMetadata overload instead.
+	 */
+	UE_DEPRECATED(5.6, "Use the FSGDynamicTextAssetFileMetadata overload instead.")
 	virtual bool ExtractMetadata(const FString& InString,
 		FSGDynamicTextAssetId& OutId,
 		FString& OutClassName,
 		FString& OutUserFacingId,
 		FString& OutVersion,
-		FSGDynamicTextAssetTypeId& OutAssetTypeId) const = 0;
+		FSGDynamicTextAssetTypeId& OutAssetTypeId) const;
 
 	/**
 	 * Updates one or more metadata fields within an already-serialized string in-place,
@@ -156,6 +175,36 @@ public:
 	 * @return True if bundle data was found and extracted
 	 */
 	virtual bool ExtractSGDTAssetBundles(const FString& InString, FSGDynamicTextAssetBundleData& OutBundleData) const;
+
+	/**
+	 * Migrates file content from one file format version to another.
+	 * Serializers override this to provide migration logic when the file
+	 * format structure changes between versions (e.g., renamed keys,
+	 * reorganized blocks).
+	 *
+	 * The default implementation returns true (no structural changes needed).
+	 * Serializers override this when actual structural format changes are introduced.
+	 *
+	 * @param InOutFileContents The raw file content string, modified in-place on success
+	 * @param CurrentFormatVersion The format version found in the file (1.0.0 if absent)
+	 * @param TargetFormatVersion The target format version to migrate to
+	 * @return True if migration succeeded or was not needed, false on failure
+	 */
+	virtual bool MigrateFileFormat(FString& InOutFileContents,
+		const FSGDynamicTextAssetVersion& CurrentFormatVersion,
+		const FSGDynamicTextAssetVersion& TargetFormatVersion) const;
+
+	/**
+	 * Updates the fileFormatVersion field in the raw file contents to a new version.
+	 * Each serializer overrides this to handle its specific format syntax.
+	 * Called by the migration pipeline after MigrateFileFormat() succeeds.
+	 *
+	 * @param InOutFileContents The raw file content string, modified in-place
+	 * @param NewVersion The version to stamp into the file
+	 * @return True if the version was successfully updated, false on failure
+	 */
+	virtual bool UpdateFileFormatVersion(FString& InOutFileContents,
+		const FSGDynamicTextAssetVersion& NewVersion) const;
 
 	/** The invalid serializer type ID to avoid confusion of what the value is. */
 	static constexpr uint32 INVALID_SERIALIZER_TYPE_ID = 0;
@@ -196,6 +245,15 @@ public:
 	 * Value: "userfacingid"
 	 */
 	static const FString KEY_USER_FACING_ID;
+
+	/**
+	 * Key for the file format version string inside the metadata block.
+	 * Tracks structural changes to the serialization format itself,
+	 * independent of the asset data versioning stored in KEY_VERSION.
+	 * Files missing this field are assumed to be format version 1.0.0.
+	 * Value: "fileFormatVersion"
+	 */
+	static const FString KEY_FILE_FORMAT_VERSION;
 
 	/**
 	 * Key for the property data block at the root level alongside metadata.

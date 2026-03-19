@@ -47,8 +47,24 @@ The plugin is split into two modules:
 - **SGDynamicTextAssetsRuntime** (`Runtime`, `PreDefault`): Core types, serialization, subsystem, file management. Ships in packaged builds.
 - **SGDynamicTextAssetsEditor** (`Editor`, `Default`): Browser, editor, reference viewer, property customizations, cook pipeline, source control. Editor-only.
 
-### Semantic Versioning
-Each dynamic text asset carries an `FSGDynamicTextAssetVersion` (Major.Minor.Patch). Major version changes trigger the migration system, allowing old data to be automatically transformed to the current format.
+### Dual Versioning System
+
+The plugin tracks two separate version numbers per file, each serving a distinct purpose:
+
+**Data Version** (`version` field in metadata)
+- Tracks asset schema changes (property renames, type changes, removed fields)
+- Incremented by the asset class author in their `USGDynamicTextAsset` subclass
+- Major version changes trigger `MigrateFromVersion()` on the asset class, which transforms old data JSON in-place before property deserialization
+- See [Versioning and Migration](Core/VersioningAndMigration.md)
+
+**File Format Version** (`fileFormatVersion` field in metadata)
+- Tracks serializer format structural changes (key renames, block reorganization, encoding changes)
+- Managed automatically by each serializer implementation
+- Major version changes are detected on editor startup and prompt for batch migration via `MigrateFileFormat()` and `UpdateFileFormatVersion()` on the serializer
+- Can also be validated and migrated via the `SGDynamicTextAssetFormatVersion` commandlet
+- See [Serializer Interface](Serialization/SerializerInterface.md)
+
+Both use `FSGDynamicTextAssetVersion` (Major.Minor.Patch). If the `fileFormatVersion` field is absent from a file, it defaults to `1.0.0`.
 
 ## Architecture
 

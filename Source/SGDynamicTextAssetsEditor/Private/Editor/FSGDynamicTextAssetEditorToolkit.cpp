@@ -3,6 +3,7 @@
 #include "Editor/FSGDynamicTextAssetEditorToolkit.h"
 
 #include "Browser/SSGDynamicTextAssetBrowser.h"
+#include "SGDynamicTextAssetScanSubsystem.h"
 #include "Core/ISGDynamicTextAssetProvider.h"
 #include "Core/SGDynamicTextAssetTypeId.h"
 #include "Core/SGDynamicTextAssetValidationResult.h"
@@ -393,6 +394,9 @@ bool FSGDynamicTextAssetEditorToolkit::LoadFromFile()
         return false;
     }
 
+    // Track the file's format version for minor auto-upgrade detection on save
+    LoadedFileFormatVersion = fileMetadata.FileFormatVersion;
+
     // Determine class
     UClass* classToUse = FindFirstObject<UClass>(*fileMetadata.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
     if (classToUse && !classToUse->ImplementsInterface(USGDynamicTextAssetProvider::StaticClass()))
@@ -560,6 +564,21 @@ bool FSGDynamicTextAssetEditorToolkit::SaveToFile()
             UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("Failed to serialize dynamic text asset"));
             return false;
         }
+
+        // Minor/patch format version auto-upgrade: if the file was loaded with an older
+        // minor/patch version (same major), call MigrateFileFormat() for any structural
+        // changes and log the upgrade. No user notification is needed for minor bumps.
+        const FSGDynamicTextAssetVersion currentFormatVersion = serializer->GetFileFormatVersion();
+        if (LoadedFileFormatVersion.IsValid()
+            && LoadedFileFormatVersion != currentFormatVersion
+            && LoadedFileFormatVersion.Major == currentFormatVersion.Major)
+        {
+            serializer->MigrateFileFormat(fileOutput, LoadedFileFormatVersion, currentFormatVersion);
+
+            UE_LOG(LogSGDynamicTextAssetsEditor, Log,
+                TEXT("Auto-upgraded file format version %s -> %s for: %s"),
+                *LoadedFileFormatVersion.ToString(), *currentFormatVersion.ToString(), *FilePath);
+        }
     }
 
     // Source control auto-checkout
@@ -593,6 +612,19 @@ bool FSGDynamicTextAssetEditorToolkit::SaveToFile()
 
     MarkClean();
     RefreshRawView();
+
+    // Incrementally update the project info cache with this file's format version
+    if (USGDynamicTextAssetScanSubsystem* scanSubsystem = GEditor->GetEditorSubsystem<USGDynamicTextAssetScanSubsystem>())
+    {
+        TSharedPtr<ISGDynamicTextAssetSerializer> serializer = FSGDynamicTextAssetFileManager::FindSerializerForFile(FilePath);
+        if (serializer.IsValid())
+        {
+            scanSubsystem->UpdateProjectInfoForFile(serializer->GetSerializerTypeId(), serializer->GetFileFormatVersion());
+
+            // Update tracked version so subsequent saves don't re-log the upgrade
+            LoadedFileFormatVersion = serializer->GetFileFormatVersion();
+        }
+    }
 
     UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Saved dynamic text asset to: %s"), *FilePath);
     return true;

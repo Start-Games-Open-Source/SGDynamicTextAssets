@@ -11,6 +11,7 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "Internationalization/Regex.h"
 #include "Statics/SGDynamicTextAssetSlateStyles.h"
 #include "UObject/UnrealType.h"
 
@@ -73,6 +74,12 @@ uint32 FSGDynamicTextAssetJsonSerializer::GetSerializerTypeId() const
     return TYPE_ID;
 }
 
+FSGDynamicTextAssetVersion FSGDynamicTextAssetJsonSerializer::GetFileFormatVersion() const
+{
+    static const FSGDynamicTextAssetVersion version(1, 0, 0);
+    return version;
+}
+
 bool FSGDynamicTextAssetJsonSerializer::SerializeProvider(const ISGDynamicTextAssetProvider* Provider, FString& OutString) const
 {
     OutString.Empty();
@@ -117,6 +124,7 @@ bool FSGDynamicTextAssetJsonSerializer::SerializeProvider(const ISGDynamicTextAs
     metadataObject->SetStringField(KEY_VERSION, Provider->GetVersion().ToString());
     metadataObject->SetStringField(KEY_ID, Provider->GetDynamicTextAssetId().ToString());
     metadataObject->SetStringField(KEY_USER_FACING_ID, Provider->GetUserFacingId());
+    metadataObject->SetStringField(KEY_FILE_FORMAT_VERSION, GetFileFormatVersion().ToString());
 
     // Serialize properties into data block
     TSharedRef<FJsonObject> dataObject = MakeShared<FJsonObject>();
@@ -402,6 +410,18 @@ bool FSGDynamicTextAssetJsonSerializer::DeserializeProvider(const FString& InStr
         OutProvider->SetVersion(fileVersion);
     }
 
+    // Extract file format version (missing = 1.0.0 for pre-format-version files)
+    FSGDynamicTextAssetVersion fileFormatVersion(1, 0, 0);
+    FString formatVersionString;
+    if (metadataObject->TryGetStringField(KEY_FILE_FORMAT_VERSION, formatVersionString))
+    {
+        fileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(formatVersionString);
+    }
+
+    UE_LOG(LogSGDynamicTextAssetsRuntime, Verbose,
+        TEXT("FSGDynamicTextAssetJsonSerializer: File format version: %s (serializer current: %s)"),
+        *fileFormatVersion.ToString(), *GetFileFormatVersion().ToString());
+
     // Check for version migration
     const FSGDynamicTextAssetVersion currentVersion = OutProvider->GetCurrentVersion();
     if (fileVersion.Major < currentVersion.Major)
@@ -621,6 +641,20 @@ bool FSGDynamicTextAssetJsonSerializer::ValidateStructure(const FString& InStrin
         return false;
     }
 
+    // If fileFormatVersion is present, validate it is a parseable version string
+    FString formatVersionStr;
+    if ((*metadataObjectPtr)->TryGetStringField(KEY_FILE_FORMAT_VERSION, formatVersionStr))
+    {
+        FSGDynamicTextAssetVersion parsedVersion = FSGDynamicTextAssetVersion::ParseFromString(formatVersionStr);
+        if (!parsedVersion.IsValid())
+        {
+            OutErrorMessage = FString::Printf(
+                TEXT("Field KEY_FILE_FORMAT_VERSION(%s) has invalid version string: %s"),
+                *KEY_FILE_FORMAT_VERSION, *formatVersionStr);
+            return false;
+        }
+    }
+
     // Check data at root
     if (!rootObject->HasField(KEY_DATA))
     {
@@ -631,10 +665,10 @@ bool FSGDynamicTextAssetJsonSerializer::ValidateStructure(const FString& InStrin
     return true;
 }
 
-bool FSGDynamicTextAssetJsonSerializer::ExtractMetadata(const FString& InString, FSGDynamicTextAssetId& OutId, FString& OutClassName, FString& OutUserFacingId, FString& OutVersion, FSGDynamicTextAssetTypeId& OutAssetTypeId) const
+bool FSGDynamicTextAssetJsonSerializer::ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const
 {
-    OutAssetTypeId.Invalidate();
-    OutClassName.Empty();
+    OutMetadata = FSGDynamicTextAssetFileMetadata();
+    OutMetadata.SerializerTypeId = TYPE_ID;
 
     TSharedPtr<FJsonObject> rootObject;
     TSharedRef<TJsonReader<>> reader = TJsonReaderFactory<>::Create(InString);
@@ -660,34 +694,45 @@ bool FSGDynamicTextAssetJsonSerializer::ExtractMetadata(const FString& InString,
         FSGDynamicTextAssetTypeId parsedTypeId = FSGDynamicTextAssetTypeId::FromString(typeFieldValue);
         if (parsedTypeId.IsValid())
         {
-            // New format: store TypeId and resolve class name from registry
-            OutAssetTypeId = parsedTypeId;
+            OutMetadata.AssetTypeId = parsedTypeId;
 
             if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
             {
                 if (const UClass* resolvedClass = registry->ResolveClassForTypeId(parsedTypeId))
                 {
-                    OutClassName = resolvedClass->GetName();
+                    OutMetadata.ClassName = resolvedClass->GetName();
                 }
             }
         }
         else
         {
-            // Legacy format: treat value as class name directly
-            OutClassName = typeFieldValue;
+            OutMetadata.ClassName = typeFieldValue;
         }
     }
 
     FString idString;
     if (metadataObject->TryGetStringField(KEY_ID, idString))
     {
-        OutId.ParseString(idString);
+        OutMetadata.Id.ParseString(idString);
     }
 
-    metadataObject->TryGetStringField(KEY_VERSION, OutVersion);
-    metadataObject->TryGetStringField(KEY_USER_FACING_ID, OutUserFacingId);
+    FString versionString;
+    if (metadataObject->TryGetStringField(KEY_VERSION, versionString))
+    {
+        OutMetadata.Version = FSGDynamicTextAssetVersion::ParseFromString(versionString);
+    }
 
-    return OutAssetTypeId.IsValid() || !OutClassName.IsEmpty();
+    metadataObject->TryGetStringField(KEY_USER_FACING_ID, OutMetadata.UserFacingId);
+
+    // Extract file format version (missing = 1.0.0 for pre-format-version files)
+    FString formatVersionString;
+    if (metadataObject->TryGetStringField(KEY_FILE_FORMAT_VERSION, formatVersionString))
+    {
+        OutMetadata.FileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(formatVersionString);
+    }
+
+    OutMetadata.bIsValid = OutMetadata.AssetTypeId.IsValid() || !OutMetadata.ClassName.IsEmpty();
+    return OutMetadata.bIsValid;
 }
 
 bool FSGDynamicTextAssetJsonSerializer::UpdateFieldsInPlace(FString& InOutContents, const TMap<FString, FString>& FieldUpdates) const
@@ -772,7 +817,7 @@ FString FSGDynamicTextAssetJsonSerializer::GetDefaultFileContent(const UClass* D
     }
 
     return FString::Printf(
-        TEXT("{\n    \"%s\": {\n        \"%s\": \"%s\",\n        \"%s\": \"1.0.0\",\n        \"%s\": \"%s\",\n        \"%s\": \"%s\"\n    },\n    \"%s\": {}\n}"),
+        TEXT("{\n    \"%s\": {\n        \"%s\": \"%s\",\n        \"%s\": \"1.0.0\",\n        \"%s\": \"%s\",\n        \"%s\": \"%s\",\n        \"%s\": \"%s\"\n    },\n    \"%s\": {}\n}"),
         *KEY_METADATA,
         *KEY_TYPE,
         *typeString,
@@ -781,6 +826,8 @@ FString FSGDynamicTextAssetJsonSerializer::GetDefaultFileContent(const UClass* D
         *Id.ToString(),
         *KEY_USER_FACING_ID,
         *UserFacingId,
+        *KEY_FILE_FORMAT_VERSION,
+        *GetFileFormatVersion().ToString(),
         *KEY_DATA
     );
 }
@@ -858,4 +905,26 @@ bool FSGDynamicTextAssetJsonSerializer::ExtractSGDTAssetBundles(const FString& I
     }
 
     return OutBundleData.HasBundles();
+}
+
+bool FSGDynamicTextAssetJsonSerializer::UpdateFileFormatVersion(FString& InOutFileContents,
+    const FSGDynamicTextAssetVersion& NewVersion) const
+{
+    // Match "fileFormatVersion": "X.Y.Z" with flexible whitespace
+    const FRegexPattern pattern(TEXT("\"fileFormatVersion\"\\s*:\\s*\"[0-9]+\\.[0-9]+\\.[0-9]+\""));
+    FRegexMatcher matcher(pattern, InOutFileContents);
+
+    if (matcher.FindNext())
+    {
+        const FString replacement = FString::Printf(TEXT("\"fileFormatVersion\": \"%s\""), *NewVersion.ToString());
+        const int32 matchBegin = matcher.GetMatchBeginning();
+        const int32 matchEnd = matcher.GetMatchEnding();
+
+        InOutFileContents = InOutFileContents.Left(matchBegin) + replacement + InOutFileContents.Mid(matchEnd);
+        return true;
+    }
+
+    UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+        TEXT("FSGDynamicTextAssetJsonSerializer::UpdateFileFormatVersion: Could not find fileFormatVersion field in file contents"));
+    return false;
 }

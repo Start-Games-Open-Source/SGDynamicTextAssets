@@ -12,6 +12,21 @@ FString FSGDynamicTextAssetVersion::ToString() const
 	return FString::Printf(TEXT("%d.%d.%d"), Major, Minor, Patch);
 }
 
+int32 FSGDynamicTextAssetVersion::GetMajor() const
+{
+	return Major;
+}
+
+int32 FSGDynamicTextAssetVersion::GetMinor() const
+{
+	return Minor;
+}
+
+int32 FSGDynamicTextAssetVersion::GetPatch() const
+{
+	return Patch;
+}
+
 FSGDynamicTextAssetVersion FSGDynamicTextAssetVersion::ParseFromString(const FString& VersionString)
 {
 	FSGDynamicTextAssetVersion result;

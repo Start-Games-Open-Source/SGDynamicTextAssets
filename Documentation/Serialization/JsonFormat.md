@@ -22,7 +22,8 @@ Every `.dta.json` file follows this structure:
     "type": "UWeaponData",
     "version": "1.0.0",
     "id": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
-    "userfacingid": "excalibur"
+    "userfacingid": "excalibur",
+    "fileFormatVersion": "1.0.0"
   },
   "data": {
     "DisplayName": "Excalibur",
@@ -43,6 +44,7 @@ All identity fields are nested under a `"metadata"` object at the root level, al
 | Version | `version` | String | Semantic version in `"Major.Minor.Patch"` format |
 | ID | `id` | String | The unique identifier in standard GUID format (maps to `FSGDynamicTextAssetId`) |
 | User Facing ID | `userfacingid` | String | Human-readable identifier for display and lookups |
+| File Format Version | `fileFormatVersion` | String | Serializer format structural version in `"Major.Minor.Patch"` format. Defaults to `"1.0.0"` if absent. Written automatically on save. |
 
 ### Data Section
 
@@ -92,6 +94,7 @@ Metadata keys are defined as static constants on `ISGDynamicTextAssetSerializer`
 | `KEY_VERSION` | `"version"` | Semantic version key |
 | `KEY_ID` | `"id"` | GUID key |
 | `KEY_USER_FACING_ID` | `"userfacingid"` | Human-readable identifier key |
+| `KEY_FILE_FORMAT_VERSION` | `"fileFormatVersion"` | File format structural version |
 | `KEY_DATA` | `"data"` | Property data block key |
 | `KEY_SGDT_ASSET_BUNDLES` | `"sgdtAssetBundles"` | Asset bundle metadata block key |
 

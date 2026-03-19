@@ -8,6 +8,7 @@
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Dom/JsonValue.h"
 #include "Dom/JsonObject.h"
+#include "Internationalization/Regex.h"
 #include "SGDynamicTextAssetLogs.h"
 #include "Statics/SGDynamicTextAssetSlateStyles.h"
 #include "UObject/TextProperty.h"
@@ -562,6 +563,12 @@ uint32 FSGDynamicTextAssetYamlSerializer::GetSerializerTypeId() const
     return TYPE_ID;
 }
 
+FSGDynamicTextAssetVersion FSGDynamicTextAssetYamlSerializer::GetFileFormatVersion() const
+{
+    static const FSGDynamicTextAssetVersion version(1, 0, 0);
+    return version;
+}
+
 bool FSGDynamicTextAssetYamlSerializer::SerializeProvider(const ISGDynamicTextAssetProvider* Provider, FString& OutString) const
 {
     OutString.Empty();
@@ -611,6 +618,8 @@ bool FSGDynamicTextAssetYamlSerializer::SerializeProvider(const ISGDynamicTextAs
             fkyaml::node(FSGDynamicTextAssetYamlSerializerInternals::ToStdString(Provider->GetDynamicTextAssetId().ToString()));
         metadataNode[FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_USER_FACING_ID)] =
             fkyaml::node(FSGDynamicTextAssetYamlSerializerInternals::ToStdString(Provider->GetUserFacingId()));
+        metadataNode[FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_FILE_FORMAT_VERSION)] =
+            fkyaml::node(FSGDynamicTextAssetYamlSerializerInternals::ToStdString(GetFileFormatVersion().ToString()));
         rootNode[FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_METADATA)] = metadataNode;
 
         // Data block
@@ -913,6 +922,19 @@ bool FSGDynamicTextAssetYamlSerializer::DeserializeProvider(const FString& InStr
         OutProvider->SetVersion(fileVersion);
     }
 
+    // Extract file format version (missing = 1.0.0 for pre-format-version files)
+    FSGDynamicTextAssetVersion fileFormatVersion(1, 0, 0);
+    const std::string formatVersionKey = FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_FILE_FORMAT_VERSION);
+    if (metadataNode.contains(formatVersionKey) && metadataNode[formatVersionKey].is_string())
+    {
+        fileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(
+            FSGDynamicTextAssetYamlSerializerInternals::ToFString(metadataNode[formatVersionKey].get_value<std::string>()));
+    }
+
+    UE_LOG(LogSGDynamicTextAssetsRuntime, Verbose,
+        TEXT("FSGDynamicTextAssetYamlSerializer: File format version: %s (serializer current: %s)"),
+        *fileFormatVersion.ToString(), *GetFileFormatVersion().ToString());
+
     // Check for version migration
     const FSGDynamicTextAssetVersion currentVersion = OutProvider->GetCurrentVersion();
     if (fileVersion.Major < currentVersion.Major)
@@ -1184,6 +1206,22 @@ bool FSGDynamicTextAssetYamlSerializer::ValidateStructure(const FString& InStrin
         return false;
     }
 
+    // If fileFormatVersion is present, validate it is a parseable version string
+    const std::string formatVersionKey = FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_FILE_FORMAT_VERSION);
+    if (metadataNode.contains(formatVersionKey) && metadataNode[formatVersionKey].is_string())
+    {
+        const FString formatVersionStr = FSGDynamicTextAssetYamlSerializerInternals::ToFString(
+            metadataNode[formatVersionKey].get_value<std::string>());
+        FSGDynamicTextAssetVersion parsedVersion = FSGDynamicTextAssetVersion::ParseFromString(formatVersionStr);
+        if (!parsedVersion.IsValid())
+        {
+            OutErrorMessage = FString::Printf(
+                TEXT("Field '%s' has invalid version string: %s"),
+                *KEY_FILE_FORMAT_VERSION, *formatVersionStr);
+            return false;
+        }
+    }
+
     const std::string dataKey = FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_DATA);
     if (!rootNode.contains(dataKey))
     {
@@ -1194,10 +1232,10 @@ bool FSGDynamicTextAssetYamlSerializer::ValidateStructure(const FString& InStrin
     return true;
 }
 
-bool FSGDynamicTextAssetYamlSerializer::ExtractMetadata(const FString& InString, FSGDynamicTextAssetId& OutId, FString& OutClassName, FString& OutUserFacingId, FString& OutVersion, FSGDynamicTextAssetTypeId& OutAssetTypeId) const
+bool FSGDynamicTextAssetYamlSerializer::ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const
 {
-    OutAssetTypeId.Invalidate();
-    OutClassName.Empty();
+    OutMetadata = FSGDynamicTextAssetFileMetadata();
+    OutMetadata.SerializerTypeId = TYPE_ID;
 
     fkyaml::node rootNode;
     FString parseError;
@@ -1227,6 +1265,7 @@ bool FSGDynamicTextAssetYamlSerializer::ExtractMetadata(const FString& InString,
     const std::string idKey = FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_ID);
     const std::string versionKey = FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_VERSION);
     const std::string userFacingIdKey = FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_USER_FACING_ID);
+    const std::string formatVersionKey = FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_FILE_FORMAT_VERSION);
 
     // Type field may contain a GUID (new format) or class name (legacy)
     if (metadataNode.contains(typeKey) && metadataNode[typeKey].is_string())
@@ -1235,38 +1274,43 @@ bool FSGDynamicTextAssetYamlSerializer::ExtractMetadata(const FString& InString,
         FSGDynamicTextAssetTypeId parsedTypeId = FSGDynamicTextAssetTypeId::FromString(typeFieldValue);
         if (parsedTypeId.IsValid())
         {
-            // New format: store TypeId and resolve class name from registry
-            OutAssetTypeId = parsedTypeId;
+            OutMetadata.AssetTypeId = parsedTypeId;
 
             if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
             {
                 if (const UClass* resolvedClass = registry->ResolveClassForTypeId(parsedTypeId))
                 {
-                    OutClassName = resolvedClass->GetName();
+                    OutMetadata.ClassName = resolvedClass->GetName();
                 }
             }
         }
         else
         {
-            // Legacy format: treat value as class name directly
-            OutClassName = typeFieldValue;
+            OutMetadata.ClassName = typeFieldValue;
         }
     }
 
     if (metadataNode.contains(idKey) && metadataNode[idKey].is_string())
     {
-        OutId.ParseString(FSGDynamicTextAssetYamlSerializerInternals::ToFString(metadataNode[idKey].get_value<std::string>()));
+        OutMetadata.Id.ParseString(FSGDynamicTextAssetYamlSerializerInternals::ToFString(metadataNode[idKey].get_value<std::string>()));
     }
     if (metadataNode.contains(versionKey) && metadataNode[versionKey].is_string())
     {
-        OutVersion = FSGDynamicTextAssetYamlSerializerInternals::ToFString(metadataNode[versionKey].get_value<std::string>());
+        OutMetadata.Version = FSGDynamicTextAssetVersion::ParseFromString(
+            FSGDynamicTextAssetYamlSerializerInternals::ToFString(metadataNode[versionKey].get_value<std::string>()));
     }
     if (metadataNode.contains(userFacingIdKey) && metadataNode[userFacingIdKey].is_string())
     {
-        OutUserFacingId = FSGDynamicTextAssetYamlSerializerInternals::ToFString(metadataNode[userFacingIdKey].get_value<std::string>());
+        OutMetadata.UserFacingId = FSGDynamicTextAssetYamlSerializerInternals::ToFString(metadataNode[userFacingIdKey].get_value<std::string>());
+    }
+    if (metadataNode.contains(formatVersionKey) && metadataNode[formatVersionKey].is_string())
+    {
+        OutMetadata.FileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(
+            FSGDynamicTextAssetYamlSerializerInternals::ToFString(metadataNode[formatVersionKey].get_value<std::string>()));
     }
 
-    return OutAssetTypeId.IsValid() || !OutClassName.IsEmpty();
+    OutMetadata.bIsValid = OutMetadata.AssetTypeId.IsValid() || !OutMetadata.ClassName.IsEmpty();
+    return OutMetadata.bIsValid;
 }
 
 bool FSGDynamicTextAssetYamlSerializer::UpdateFieldsInPlace(FString& InOutContents, const TMap<FString, FString>& FieldUpdates) const
@@ -1375,6 +1419,8 @@ FString FSGDynamicTextAssetYamlSerializer::GetDefaultFileContent(const UClass* D
             fkyaml::node(FSGDynamicTextAssetYamlSerializerInternals::ToStdString(Id.ToString()));
         metadataNode[FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_USER_FACING_ID)] =
             fkyaml::node(FSGDynamicTextAssetYamlSerializerInternals::ToStdString(UserFacingId));
+        metadataNode[FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_FILE_FORMAT_VERSION)] =
+            fkyaml::node(FSGDynamicTextAssetYamlSerializerInternals::ToStdString(GetFileFormatVersion().ToString()));
         rootNode[FSGDynamicTextAssetYamlSerializerInternals::ToStdString(KEY_METADATA)] = metadataNode;
 
         // Empty data block
@@ -1480,4 +1526,28 @@ bool FSGDynamicTextAssetYamlSerializer::ExtractSGDTAssetBundles(const FString& I
     {
         return false;
     }
+}
+
+bool FSGDynamicTextAssetYamlSerializer::UpdateFileFormatVersion(FString& InOutFileContents,
+    const FSGDynamicTextAssetVersion& NewVersion) const
+{
+    // Match fileFormatVersion: X.Y.Z or fileFormatVersion: "X.Y.Z" (quoted or unquoted)
+    const FRegexPattern pattern(TEXT("(fileFormatVersion:\\s*)\"?[0-9]+\\.[0-9]+\\.[0-9]+\"?"));
+    FRegexMatcher matcher(pattern, InOutFileContents);
+
+    if (matcher.FindNext())
+    {
+        // Preserve the key and whitespace prefix (capture group 1), replace only the value
+        const FString prefix = matcher.GetCaptureGroup(1);
+        const FString replacement = prefix + NewVersion.ToString();
+        const int32 matchBegin = matcher.GetMatchBeginning();
+        const int32 matchEnd = matcher.GetMatchEnding();
+
+        InOutFileContents = InOutFileContents.Left(matchBegin) + replacement + InOutFileContents.Mid(matchEnd);
+        return true;
+    }
+
+    UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+        TEXT("FSGDynamicTextAssetYamlSerializer::UpdateFileFormatVersion: Could not find fileFormatVersion field in file contents"));
+    return false;
 }

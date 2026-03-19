@@ -126,26 +126,22 @@ bool FSGDynamicTextAssetCookUtils::ValidateDynamicTextAssetFile(const FString& F
 	}
 
 	// Extract metadata
-	FSGDynamicTextAssetId id;
-	FString className;
-	FString userFacingId;
-	FString versionString;
-	FSGDynamicTextAssetTypeId unusedTypeId;
-	if (!serializer->ExtractMetadata(fileContents, id, className, userFacingId, versionString, unusedTypeId))
+	FSGDynamicTextAssetFileMetadata fileMeta;
+	if (!serializer->ExtractMetadata(fileContents, fileMeta))
 	{
 		OutErrors.Add(TEXT("Failed to extract metadata"));
 	}
 	else
 	{
-		if (!id.IsValid())
+		if (!fileMeta.Id.IsValid())
 		{
 			OutErrors.Add(TEXT("ID is not valid"));
 		}
-		if (className.IsEmpty())
+		if (fileMeta.ClassName.IsEmpty())
 		{
 			OutErrors.Add(FString::Printf(TEXT("Empty %s field"), *ISGDynamicTextAssetSerializer::KEY_TYPE));
 		}
-		if (versionString.IsEmpty())
+		if (!fileMeta.Version.IsValid())
 		{
 			OutErrors.Add(FString::Printf(TEXT("Empty %s field"), *ISGDynamicTextAssetSerializer::KEY_VERSION));
 		}
@@ -154,17 +150,17 @@ bool FSGDynamicTextAssetCookUtils::ValidateDynamicTextAssetFile(const FString& F
     // Attempt to instantiate and deep validate if basic structure holds
     if (OutErrors.IsEmpty())
     {
-        UClass* actualClass = FindFirstObject<UClass>(*className, EFindFirstObjectOptions::EnsureIfAmbiguous);
+        UClass* actualClass = FindFirstObject<UClass>(*fileMeta.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
         if (!actualClass)
         {
-            OutErrors.Add(FString::Printf(TEXT("Failed to find UClass for type: %s"), *className));
+            OutErrors.Add(FString::Printf(TEXT("Failed to find UClass for type: %s"), *fileMeta.ClassName));
         }
         else
         {
             TScriptInterface<ISGDynamicTextAssetProvider> tempObject = NewObject<UObject>(GetTransientPackage(), actualClass);
             if (!tempObject)
             {
-                OutErrors.Add(FString::Printf(TEXT("Failed to instantiate UClass: %s"), *className));
+                OutErrors.Add(FString::Printf(TEXT("Failed to instantiate UClass: %s"), *fileMeta.ClassName));
             }
             else
             {
@@ -210,32 +206,28 @@ bool FSGDynamicTextAssetCookUtils::CookDynamicTextAssetFile(
 	}
 
 	// Extract metadata
-	FSGDynamicTextAssetId id;
-	FString className;
-	FString userFacingId;
-	FString versionString;
-	FSGDynamicTextAssetTypeId assetTypeId;
-	if (!serializer->ExtractMetadata(fileContents, id, className, userFacingId, versionString, assetTypeId) || !id.IsValid())
+	FSGDynamicTextAssetFileMetadata cookMeta;
+	if (!serializer->ExtractMetadata(fileContents, cookMeta) || !cookMeta.Id.IsValid())
 	{
 		UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("FSGDynamicTextAssetCookUtils: Failed to extract metadata or ID from: %s"), *JsonFilePath);
 		return false;
 	}
 
-	if (className.IsEmpty())
+	if (cookMeta.ClassName.IsEmpty())
 	{
 		UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("FSGDynamicTextAssetCookUtils: Failed to extract ClassName from: %s"), *JsonFilePath);
 		return false;
 	}
 
-	if (userFacingId.IsEmpty())
+	if (cookMeta.UserFacingId.IsEmpty())
 	{
-		userFacingId = FSGDynamicTextAssetFileManager::ExtractUserFacingIdFromPath(JsonFilePath);
+		cookMeta.UserFacingId = FSGDynamicTextAssetFileManager::ExtractUserFacingIdFromPath(JsonFilePath);
 	}
 
 	// Build flat ID-named output path: {OutputDirectory}/{Id}.dta.bin
 	FString binaryFilePath = FPaths::Combine(
 		OutputDirectory,
-		id.ToString() + FSGDynamicTextAssetFileManager::BINARY_EXTENSION);
+		cookMeta.Id.ToString() + FSGDynamicTextAssetFileManager::BINARY_EXTENSION);
 
 	// Ensure output directory exists
 	IPlatformFile& platformFile = FPlatformFileManager::Get().GetPlatformFile();
@@ -250,9 +242,9 @@ bool FSGDynamicTextAssetCookUtils::CookDynamicTextAssetFile(
 
 	// Convert string to binary, storing the serializer's type ID and asset type ID for routing on load
 	FSGBinaryEncodeParams encodeParams;
-	encodeParams.Id = id;
+	encodeParams.Id = cookMeta.Id;
 	encodeParams.SerializerTypeId = serializer->GetSerializerTypeId();
-	encodeParams.AssetTypeId = assetTypeId;
+	encodeParams.AssetTypeId = cookMeta.AssetTypeId;
 	encodeParams.CompressionMethod = CompressionMethod;
 
 	TArray<uint8> binaryData;
@@ -270,7 +262,7 @@ bool FSGDynamicTextAssetCookUtils::CookDynamicTextAssetFile(
 	}
 
 	// Add entry to manifest (strip UserFacingId if setting is enabled)
-	FString manifestUserFacingId = userFacingId;
+	FString manifestUserFacingId = cookMeta.UserFacingId;
 	if (USGDynamicTextAssetSettingsAsset* settings = USGDynamicTextAssetSettings::GetSettings())
 	{
 		if (settings->ShouldStripUserFacingIdFromCookedManifest())
@@ -278,7 +270,7 @@ bool FSGDynamicTextAssetCookUtils::CookDynamicTextAssetFile(
 			manifestUserFacingId.Empty();
 		}
 	}
-	OutManifest.AddEntry(id, className, manifestUserFacingId, assetTypeId);
+	OutManifest.AddEntry(cookMeta.Id, cookMeta.ClassName, manifestUserFacingId, cookMeta.AssetTypeId);
 
 	FString relativeOutput = binaryFilePath;
 	FPaths::MakePathRelativeTo(relativeOutput, *FPaths::ProjectDir());

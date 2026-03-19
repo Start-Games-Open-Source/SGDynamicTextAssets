@@ -348,8 +348,16 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
 
             if (payloadSerializer.IsValid())
             {
-                FString version;
-                payloadSerializer->ExtractMetadata(payloadString, metadata.Id, metadata.ClassName, metadata.UserFacingId, version, metadata.AssetTypeId);
+                FSGDynamicTextAssetFileMetadata extractedMetadata;
+                if (payloadSerializer->ExtractMetadata(payloadString, extractedMetadata))
+                {
+                    metadata.Id = extractedMetadata.Id;
+                    metadata.ClassName = extractedMetadata.ClassName;
+                    metadata.UserFacingId = extractedMetadata.UserFacingId;
+                    metadata.AssetTypeId = extractedMetadata.AssetTypeId;
+                    metadata.Version = extractedMetadata.Version;
+                    metadata.FileFormatVersion = extractedMetadata.FileFormatVersion;
+                }
             }
             else
             {
@@ -387,13 +395,10 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
     TSharedPtr<ISGDynamicTextAssetSerializer> serializer = FindSerializerForFile(FilePath);
     if (serializer.IsValid())
     {
-        FString className;
-        FString userFacingId;
-        FString version;
-        if (serializer->ExtractMetadata(fileContents, metadata.Id, className, userFacingId, version, metadata.AssetTypeId))
+        FSGDynamicTextAssetFileMetadata extractedMetadata;
+        if (serializer->ExtractMetadata(fileContents, extractedMetadata))
         {
-            metadata.ClassName = className;
-            metadata.UserFacingId = userFacingId;
+            metadata = extractedMetadata;
 
             if (metadata.UserFacingId.IsEmpty())
             {

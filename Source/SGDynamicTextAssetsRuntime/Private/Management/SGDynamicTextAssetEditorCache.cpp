@@ -175,10 +175,8 @@ TScriptInterface<ISGDynamicTextAssetProvider> FSGDynamicTextAssetEditorCache::In
 	}
 
 	// Step 4: Extract metadata to resolve the class
-	FSGDynamicTextAssetId metadataId;
-	FString metadataClassName, metadataUserId, metadataVersion;
-	FSGDynamicTextAssetTypeId metadataAssetTypeId;
-	if (!serializer->ExtractMetadata(textPayload, metadataId, metadataClassName, metadataUserId, metadataVersion, metadataAssetTypeId))
+	FSGDynamicTextAssetFileMetadata cacheMeta;
+	if (!serializer->ExtractMetadata(textPayload, cacheMeta))
 	{
 		UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
 			TEXT("FSGDynamicTextAssetEditorCache: Failed to extract metadata from FilePath(%s)"), *filePath);
@@ -187,22 +185,22 @@ TScriptInterface<ISGDynamicTextAssetProvider> FSGDynamicTextAssetEditorCache::In
 
 	// Step 5: Resolve the class (TypeId first, fallback to className)
 	UClass* dynamicTextAssetClass = nullptr;
-	if (metadataAssetTypeId.IsValid())
+	if (cacheMeta.AssetTypeId.IsValid())
 	{
 		if (USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
 		{
-			dynamicTextAssetClass = registry->ResolveClassForTypeId(metadataAssetTypeId);
+			dynamicTextAssetClass = registry->ResolveClassForTypeId(cacheMeta.AssetTypeId);
 		}
 	}
-	if (!dynamicTextAssetClass && !metadataClassName.IsEmpty())
+	if (!dynamicTextAssetClass && !cacheMeta.ClassName.IsEmpty())
 	{
-		dynamicTextAssetClass = FindFirstObject<UClass>(*metadataClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
+		dynamicTextAssetClass = FindFirstObject<UClass>(*cacheMeta.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
 	}
 	if (!dynamicTextAssetClass)
 	{
 		UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
 			TEXT("FSGDynamicTextAssetEditorCache: Could not resolve class for Id(%s) ClassName(%s) TypeId(%s)"),
-			*Id.ToString(), *metadataClassName, *metadataAssetTypeId.ToString());
+			*Id.ToString(), *cacheMeta.ClassName, *cacheMeta.AssetTypeId.ToString());
 		return emptyProvider;
 	}
 

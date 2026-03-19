@@ -251,4 +251,62 @@ static TArray<TSharedPtr<ISGDynamicTextAssetSerializer>> GetAllRegisteredSeriali
 static void GetAllRegisteredSerializerDescriptions(TArray<FString>& OutDescriptions);
 ```
 
+## File Format Versioning
+
+Custom serializers should implement file format versioning to support future structural changes to the file format.
+
+### Required Override
+
+Override `GetFileFormatVersion()` to return your format's current version:
+
+```cpp
+FSGDynamicTextAssetVersion GetFileFormatVersion() const override
+{
+    // Start at 1.0.0, increment when your format structure changes
+    return FSGDynamicTextAssetVersion(1, 0, 0);
+}
+```
+
+### Required Override: UpdateFileFormatVersion
+
+Override `UpdateFileFormatVersion()` to update the version stamp in your format's raw file content. This is called by the migration pipeline after structural migration succeeds:
+
+```cpp
+bool UpdateFileFormatVersion(FString& InOutFileContents,
+    const FSGDynamicTextAssetVersion& NewVersion) const override
+{
+    // Use regex or string replacement to find and update the
+    // fileFormatVersion field in your format's syntax.
+    // Return true on success, false if the field was not found.
+}
+```
+
+> You don't have to use regex, I just used it for simplicity and performance.
+> You can use any approach you want because its not a runtime process.
+
+### Optional Override: MigrateFileFormat
+
+Override `MigrateFileFormat()` when you introduce structural changes to your format (renamed keys, reorganized blocks, etc.). The default implementation returns `true` (no structural changes needed):
+
+```cpp
+bool MigrateFileFormat(FString& InOutFileContents,
+    const FSGDynamicTextAssetVersion& CurrentFormatVersion,
+    const FSGDynamicTextAssetVersion& TargetFormatVersion) const override
+{
+    // Apply structural transformations to InOutFileContents.
+    // The version stamp is updated separately by UpdateFileFormatVersion().
+    return true;
+}
+```
+
+### Migration Pipeline Flow
+
+When the editor detects outdated files (major version mismatch), the migration runs:
+
+1. `MigrateFileFormat()` applies structural changes to the file content
+2. `UpdateFileFormatVersion()` stamps the new version into the file
+3. The updated content is written back to disk
+
+This separation ensures that structural migration logic and version bookkeeping are independent concerns.
+
 [Back to Table of Contents](../TableOfContents.md)

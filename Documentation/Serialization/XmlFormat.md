@@ -24,6 +24,7 @@ Every `.dta.xml` file follows this structure:
         <version>1.0.0</version>
         <id>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</id>
         <userfacingid>excalibur</userfacingid>
+        <fileFormatVersion>1.0.0</fileFormatVersion>
     </metadata>
     <data>
         <DisplayName>Excalibur</DisplayName>
@@ -48,6 +49,7 @@ The `<metadata>` element contains four child elements with the same keys used ac
 | `<version>` | Semantic version in `Major.Minor.Patch` format |
 | `<id>` | The unique identifier in standard GUID format |
 | `<userfacingid>` | Human-readable identifier for display and lookups |
+| `<fileFormatVersion>` | Serializer format structural version in `Major.Minor.Patch` format. Defaults to `1.0.0` if absent. Written automatically on save. |
 
 ### Data Section
 

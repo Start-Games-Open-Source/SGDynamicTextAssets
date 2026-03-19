@@ -22,6 +22,7 @@ public:
 	virtual FText GetFormatDescription() const override { return FText::GetEmpty(); }
 #endif
 	virtual uint32 GetSerializerTypeId() const override { return 99; }
+	virtual FSGDynamicTextAssetVersion GetFileFormatVersion() const override { return FSGDynamicTextAssetVersion(1, 0, 0); }
 
 	virtual bool SerializeProvider(const ISGDynamicTextAssetProvider* Provider,
 		FString& OutString) const override
@@ -43,14 +44,10 @@ public:
 		return true;
 	}
 
-	virtual bool ExtractMetadata(const FString& InString,
-		FSGDynamicTextAssetId& OutId,
-		FString& OutClassName,
-		FString& OutUserFacingId,
-		FString& OutVersion,
-		FSGDynamicTextAssetTypeId& OutAssetTypeId) const override
+	virtual bool ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const override
 	{
-		OutAssetTypeId.Invalidate();
+		OutMetadata.AssetTypeId.Invalidate();
+		OutMetadata.bIsValid = false;
 		return false;
 	}
 	virtual bool UpdateFieldsInPlace(FString& InOutContents,
@@ -81,6 +78,7 @@ public:
 	virtual FText GetFormatDescription() const override { return FText::GetEmpty(); }
 #endif
 	virtual uint32 GetSerializerTypeId() const override { return 98; }
+	virtual FSGDynamicTextAssetVersion GetFileFormatVersion() const override { return FSGDynamicTextAssetVersion(1, 0, 0); }
 
 	virtual bool SerializeProvider(const ISGDynamicTextAssetProvider* Provider,
 		FString& OutString) const override
@@ -103,14 +101,10 @@ public:
 		return true;
 	}
 
-	virtual bool ExtractMetadata(const FString& InString,
-		FSGDynamicTextAssetId& OutId,
-		FString& OutClassName,
-		FString& OutUserFacingId,
-		FString& OutVersion,
-		FSGDynamicTextAssetTypeId& OutAssetTypeId) const override
+	virtual bool ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const override
 	{
-		OutAssetTypeId.Invalidate();
+		OutMetadata.AssetTypeId.Invalidate();
+		OutMetadata.bIsValid = false;
 		return false;
 	}
 	virtual bool UpdateFieldsInPlace(FString& InOutContents,

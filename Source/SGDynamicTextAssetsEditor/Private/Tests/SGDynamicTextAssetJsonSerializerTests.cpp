@@ -254,16 +254,14 @@ bool FSGDynamicTextAssetJsonSerializer_SerializeProvider_ProducesValidJson::RunT
 		serializer.ValidateStructure(outJson, errorMessage));
 
 	// Verify metadata extraction from serialized output
-	FString extractedClassName, extractedUserFacingId, extractedVersion;
-	FSGDynamicTextAssetId extractedId;
-	FSGDynamicTextAssetTypeId extractedTypeId;
-	serializer.ExtractMetadata(outJson, extractedId, extractedClassName, extractedUserFacingId, extractedVersion, extractedTypeId);
+	FSGDynamicTextAssetFileMetadata extractedMeta;
+	serializer.ExtractMetadata(outJson, extractedMeta);
 
-	// Hidden test class has no TypeId  - serializer falls back to class name
-	TestFalse(TEXT("TypeId should be invalid for unregistered test class"), extractedTypeId.IsValid());
-	TestEqual(TEXT("Extracted class name should match"), extractedClassName, TEXT("SGDynamicTextAssetUnitTest"));
-	TestEqual(TEXT("Extracted ID should match"), extractedId, testId);
-	TestEqual(TEXT("Extracted version should match"), extractedVersion, TEXT("1.2.3"));
+	// Hidden test class has no TypeId - serializer falls back to class name
+	TestFalse(TEXT("TypeId should be invalid for unregistered test class"), extractedMeta.AssetTypeId.IsValid());
+	TestEqual(TEXT("Extracted class name should match"), extractedMeta.ClassName, TEXT("SGDynamicTextAssetUnitTest"));
+	TestEqual(TEXT("Extracted ID should match"), extractedMeta.Id, testId);
+	TestEqual(TEXT("Extracted version should match"), extractedMeta.Version.ToString(), TEXT("1.2.3"));
 
 	return true;
 }
@@ -492,16 +490,11 @@ bool FSGDynamicTextAssetJsonSerializer_ExtractMetadata_ReadsUserFacingId::RunTes
 		*ISGDynamicTextAssetSerializer::KEY_DATA);
 
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetId outId;
-	FString outClassName;
-	FString outUserFacingId;
-	FString outVersion;
-
-	FSGDynamicTextAssetTypeId extractedTypeId;
-	bool bExtracted = serializer.ExtractMetadata(json, outId, outClassName, outUserFacingId, outVersion, extractedTypeId);
+	FSGDynamicTextAssetFileMetadata outMeta;
+	bool bExtracted = serializer.ExtractMetadata(json, outMeta);
 	TestTrue(TEXT("ExtractMetadata should succeed"), bExtracted);
-	TestEqual(TEXT("UserFacingId should be extracted"), outUserFacingId, TEXT("holy_shield"));
-	TestFalse(TEXT("TypeId should be invalid for legacy class name format"), extractedTypeId.IsValid());
+	TestEqual(TEXT("UserFacingId should be extracted"), outMeta.UserFacingId, TEXT("holy_shield"));
+	TestFalse(TEXT("TypeId should be invalid for legacy class name format"), outMeta.AssetTypeId.IsValid());
 
 	return true;
 }
@@ -561,19 +554,15 @@ bool FSGDynamicTextAssetJsonSerializer_ExtractMetadata_WithGuid_ExtractsAssetTyp
 	const FString json = SGJsonSerializerTestUtils::BuildValidJson(guidString);
 
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetId outId;
-	FString outClassName;
-	FString outUserFacingId;
-	FString outVersion;
-	FSGDynamicTextAssetTypeId extractedTypeId;
+	FSGDynamicTextAssetFileMetadata outMeta;
 
-	bool bExtracted = serializer.ExtractMetadata(json, outId, outClassName, outUserFacingId, outVersion, extractedTypeId);
+	bool bExtracted = serializer.ExtractMetadata(json, outMeta);
 	TestTrue(TEXT("ExtractMetadata should succeed with GUID type field"), bExtracted);
-	TestTrue(TEXT("TypeId should be valid when type field contains a GUID"), extractedTypeId.IsValid());
-	TestEqual(TEXT("Extracted TypeId should match the input GUID"), extractedTypeId.ToString(), guidString);
+	TestTrue(TEXT("TypeId should be valid when type field contains a GUID"), outMeta.AssetTypeId.IsValid());
+	TestEqual(TEXT("Extracted TypeId should match the input GUID"), outMeta.AssetTypeId.ToString(), guidString);
 
 	// No registry mapping exists for this test GUID, so class name should be empty
-	TestTrue(TEXT("Class name should be empty for unregistered GUID"), outClassName.IsEmpty());
+	TestTrue(TEXT("Class name should be empty for unregistered GUID"), outMeta.ClassName.IsEmpty());
 
 	return true;
 }
@@ -593,16 +582,12 @@ bool FSGDynamicTextAssetJsonSerializer_ExtractMetadata_LegacyClassName_NoTypeId:
 	const FString json = SGJsonSerializerTestUtils::BuildValidJson(TEXT("USGDynamicTextAsset"));
 
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetId outId;
-	FString outClassName;
-	FString outUserFacingId;
-	FString outVersion;
-	FSGDynamicTextAssetTypeId extractedTypeId;
+	FSGDynamicTextAssetFileMetadata outMeta;
 
-	bool bExtracted = serializer.ExtractMetadata(json, outId, outClassName, outUserFacingId, outVersion, extractedTypeId);
+	bool bExtracted = serializer.ExtractMetadata(json, outMeta);
 	TestTrue(TEXT("ExtractMetadata should succeed with legacy class name"), bExtracted);
-	TestFalse(TEXT("TypeId should be invalid for legacy class name format"), extractedTypeId.IsValid());
-	TestEqual(TEXT("Class name should match the type field value"), outClassName, TEXT("USGDynamicTextAsset"));
+	TestFalse(TEXT("TypeId should be invalid for legacy class name format"), outMeta.AssetTypeId.IsValid());
+	TestEqual(TEXT("Class name should match the type field value"), outMeta.ClassName, TEXT("USGDynamicTextAsset"));
 
 	return true;
 }
