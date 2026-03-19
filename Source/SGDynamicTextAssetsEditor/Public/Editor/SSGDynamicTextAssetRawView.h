@@ -42,6 +42,12 @@ public:
         /** The raw payload text. */
         SLATE_ARGUMENT(FText, RawText)
 
+        /**
+         * The file format version (e.g., "2.0.0").
+         * When empty, the collapsible section is not shown.
+         */
+        SLATE_ARGUMENT(FText, FileFormatVersion)
+
         /** Called when the user clicks the Refresh button to reload file contents from disk. */
         SLATE_EVENT(FSimpleDelegate, OnRefreshRequested)
 

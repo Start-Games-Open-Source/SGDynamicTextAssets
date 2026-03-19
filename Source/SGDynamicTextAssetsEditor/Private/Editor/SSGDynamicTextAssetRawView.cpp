@@ -54,6 +54,7 @@ void SSGDynamicTextAssetRawView::Construct(const FArguments& InArgs)
                     .DynamicTextAssetId(InArgs._DynamicTextAssetId)
                     .UserFacingId(InArgs._UserFacingId)
                     .Version(InArgs._Version)
+                    .FileFormatVersion(InArgs._FileFormatVersion)
                 ]
             ]
 

@@ -24,6 +24,7 @@
 #include "Serialization/SGDynamicTextAssetJsonSerializer.h"
 #include "SGDynamicTextAssetEditorLogs.h"
 #include "SourceCodeNavigation.h"
+#include "Statics/SGDynamicTextAssetStatics.h"
 #include "Styling/AppStyle.h"
 #include "UObject/Package.h"
 #include "Utilities/SGDynamicTextAssetSourceControl.h"
@@ -125,43 +126,64 @@ void FSGDynamicTextAssetEditorToolkit::PostRegenerateMenusAndToolbars()
     TSharedPtr<ISGDynamicTextAssetSerializer> serializer = FSGDynamicTextAssetFileManager::FindSerializerForFile(FilePath);
     if (!serializer.IsValid())
     {
-
+        return;
     }
     const FText description = serializer->GetFormatDescription();
-    AddToolbarWidget(SNew(SHorizontalBox)
+    AddToolbarWidget(
+        SNew(SVerticalBox)
 
-        // "File Type:" text
-        + SHorizontalBox::Slot()
-        .AutoWidth()
-        .VAlign(VAlign_Center)
-        .Padding(0)
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(0.0f, 0.0f, 15.0f, 0.0f)
+        [
+            SNew(SHorizontalBox)
+
+            // "File Type:" text
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0)
+            [
+                SNew(STextBlock)
+                .Text(INVTEXT("File Type: "))
+                .ColorAndOpacity(FSlateColor::UseSubduedForeground())
+            ]
+
+            // File type format text
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0)
+            [
+              SNew(STextBlock)
+              .Text(serializer->GetFormatName())
+              .ColorAndOpacity(FSlateColor::UseForeground())
+            ]
+
+            // Help icon to signal hover will tell you what it is
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(5.0f, 0.0f, 0.0f, 0.0f)
+            [
+                SNew(SImage)
+                .Image(FAppStyle::GetBrush("Icons.Help"))
+                .ColorAndOpacity(FSlateColor::UseSubduedForeground())
+                .ToolTipText(description)
+            ]
+        ]
+
+        // Print the version below the type and help icon
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .HAlign(HAlign_Right)
+        .Padding(0.0f, 0.0f, 15.0f, 0.0f)
         [
             SNew(STextBlock)
-            .Text(INVTEXT("File Type: "))
+            .Font(FCoreStyle::GetDefaultFontStyle("Italic", 8))
             .ColorAndOpacity(FSlateColor::UseSubduedForeground())
-        ]
-
-        // File type format text
-        + SHorizontalBox::Slot()
-        .AutoWidth()
-        .VAlign(VAlign_Center)
-        .Padding(0)
-        [
-          SNew(STextBlock)
-          .Text(serializer->GetFormatName())
-          .ColorAndOpacity(FSlateColor::UseForeground())
-        ]
-
-        // Help icon to signal hover will tell you what it is
-        + SHorizontalBox::Slot()
-        .AutoWidth()
-        .VAlign(VAlign_Center)
-        .Padding(5.0f, 0.0f, 15.0f, 0.0f)
-        [
-            SNew(SImage)
-            .Image(FAppStyle::GetBrush("Icons.Help"))
-            .ColorAndOpacity(FSlateColor::UseSubduedForeground())
-            .ToolTipText(description)
+            .Text(FText::Format(INVTEXT("Version: {0}"), serializer->GetFileFormatVersion().ToText()))
+            .ToolTipText(INVTEXT("The latest file format version that this file type is at.\nThis may be different from this specific DTA's file format version."))
         ]
     );
 
@@ -679,16 +701,22 @@ TSharedRef<SDockTab> FSGDynamicTextAssetEditorToolkit::SpawnTab_Details(const FS
 
 TSharedRef<SDockTab> FSGDynamicTextAssetEditorToolkit::SpawnTab_RawView(const FSpawnTabArgs& Args)
 {
-    FText dataObjectId = INVTEXT("");
-    FText userFacingId = INVTEXT("");
-    FText version = INVTEXT("");
-    FText rawText = INVTEXT("");
+    FText dataObjectId = FText::GetEmpty();
+    FText userFacingId = FText::GetEmpty();
+    FText version = FText::GetEmpty();
+    FText fileFormatVersion = FText::GetEmpty();
+    FText rawText = FText::GetEmpty();
 
+    // Retrieve values from the DTA
     if (ISGDynamicTextAssetProvider* provider = Cast<ISGDynamicTextAssetProvider>(EditedDynamicTextAsset))
     {
         dataObjectId = FText::FromString(provider->GetDynamicTextAssetId().ToString());
         userFacingId = FText::FromString(provider->GetUserFacingId());
         version = FText::FromString(provider->GetVersion().ToString());
+        if (TSharedPtr<ISGDynamicTextAssetSerializer> serializer = USGDynamicTextAssetStatics::FindSerializerForDynamicTextAssetId(provider->GetDynamicTextAssetId()))
+        {
+            fileFormatVersion = serializer->GetFileFormatVersion().ToText();
+        }
     }
 
     return SNew(SDockTab)
@@ -699,6 +727,7 @@ TSharedRef<SDockTab> FSGDynamicTextAssetEditorToolkit::SpawnTab_RawView(const FS
             .UserFacingId(userFacingId)
             .Version(version)
             .JsonText(GetRawText())
+            .FileFormatVersion(fileFormatVersion)
             .OnRefreshRequested(FSimpleDelegate::CreateSP(this, &FSGDynamicTextAssetEditorToolkit::RefreshRawView))
         ];
 }

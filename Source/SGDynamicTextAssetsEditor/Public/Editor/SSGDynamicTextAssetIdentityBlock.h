@@ -6,6 +6,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 
+class SExpandableArea;
 class STextBlock;
 
 /**
@@ -16,6 +17,7 @@ class STextBlock;
  * - User Facing ID
  * - Dynamic Text Asset ID
  * - Version
+ * - File Format Version (optional, collapsible, collapsed by default)
  */
 class SGDYNAMICTEXTASSETSEDITOR_API SSGDynamicTextAssetIdentityBlock : public SCompoundWidget
 {
@@ -25,6 +27,7 @@ public:
 		: _DynamicTextAssetId(FText::GetEmpty())
 		, _UserFacingId(FText::GetEmpty())
 		, _Version(FText::GetEmpty())
+		, _FileFormatVersion(FText::GetEmpty())
 	{}
 
 		/** The unique GUID of the dynamic text asset. */
@@ -36,13 +39,23 @@ public:
 		/** The data schema version. */
 		SLATE_ARGUMENT(FText, Version)
 
+		/**
+		 * The file format version (e.g., "2.0.0").
+		 * When empty, the collapsible section is not shown.
+		 */
+		SLATE_ARGUMENT(FText, FileFormatVersion)
+
 	SLATE_END_ARGS()
 
 	/** Constructs this widget with InArgs */
 	void Construct(const FArguments& InArgs);
 
-	/** Updates the properties displayed. */
-	void SetIdentityProperties(const FText& InDynamicTextAssetId, const FText& InUserFacingId, const FText& InVersion);
+	/**
+	 * Updates the properties displayed.
+	 * FileFormatVersion is only updated when its textblock exists (i.e., when the collapsible section was constructed).
+	 */
+	void SetIdentityProperties(const FText& InDynamicTextAssetId, const FText& InUserFacingId, const FText& InVersion,
+		const FText& InFileFormatVersion = FText::GetEmpty());
 
 	/**
 	 * Copied from PropertyEditorConstants::PropertyRowHeight
@@ -57,4 +70,6 @@ private:
 	TSharedPtr<STextBlock> IdTextblock = nullptr;
 	TSharedPtr<STextBlock> UserFacingIdTextblock = nullptr;
 	TSharedPtr<STextBlock> VersionTextblock = nullptr;
+	TSharedPtr<STextBlock> FileFormatVersionTextblock = nullptr;
+	TSharedPtr<SExpandableArea> CollapsibleArea = nullptr;
 };

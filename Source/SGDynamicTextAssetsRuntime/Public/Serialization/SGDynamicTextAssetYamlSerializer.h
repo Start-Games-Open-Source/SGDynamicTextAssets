@@ -19,8 +19,8 @@
  * DeserializeValueToProperty), keeping format-specific complexity
  * contained to the YAML-to-FJsonValue bridge.
  *
- * YAML format uses a metadata wrapper block, for example:
- * metadata:
+ * YAML format uses a metadata wrapper block(sgFileInformation), for example:
+ * sgFileInformation:
  *   type: UWeaponData
  *   version: 1.0.0
  *   id: 550E8400-E29B-41D4-A716-446655440000

@@ -370,15 +370,16 @@ Property values are converted via the FSGDynamicTextAssetSerializerBase
 JSON-intermediate helpers, keeping format-specific complexity
 contained to the XML-to-FJsonValue bridge.
 
-XML format uses a metadata wrapper block, for example:
+XML format uses a metadata wrapper block(sgFileInformation), for example:
 <?xml version="1.0" encoding="UTF-8"?>
 <DynamicTextAsset>
-    <metadata>
+    <sgFileInformation>
         <type>UWeaponData</type>
         <version>1.0.0</version>
         <id>...</id>
         <userfacingid>excalibur</userfacingid>
-    </metadata>
+        <fileFormatVersion>1.5.2</fileFormatVersion>
+    </sgFileInformation>
     <data>
         <Damage>50.0</Damage>
     </data>

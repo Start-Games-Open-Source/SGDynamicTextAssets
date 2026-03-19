@@ -19,9 +19,9 @@ class USGDynamicTextAsset;
  * Uses Unreal's property reflection system to serialize/deserialize
  * all UPROPERTY marked fields on USGDynamicTextAsset subclasses.
  *
- * JSON format uses a metadata wrapper block, for example:
+ * JSON format uses a metadata wrapper block(sgFileInformation), for example:
  * {
- *   "metadata": {
+ *   "sgFileInformation": {
  *     "type": "UWeaponData",
  *     "version": "1.0.0",
  *     "id": "...",

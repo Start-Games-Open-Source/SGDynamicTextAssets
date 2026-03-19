@@ -6,11 +6,12 @@
 #include "DetailCategoryBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"
-#include "SGDynamicTextAssetEditorLogs.h"
+#include "Editor/SSGDynamicTextAssetIdentityBlock.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
-#include "Editor/SSGDynamicTextAssetIdentityBlock.h"
+#include "SGDynamicTextAssetEditorLogs.h"
+#include "Statics/SGDynamicTextAssetStatics.h"
 
 TSharedRef<IDetailCustomization> FSGDynamicTextAssetIdentityCustomization::MakeInstance()
 {
@@ -33,16 +34,16 @@ void FSGDynamicTextAssetIdentityCustomization::CustomizeDetails(IDetailLayoutBui
 		return;
 	}
 
-	TScriptInterface<ISGDynamicTextAssetProvider> dataObject(weakObject.Get());
-	if (!dataObject.GetObject())
+	TScriptInterface<ISGDynamicTextAssetProvider> provider(weakObject.Get());
+	if (!provider.GetObject())
 	{
 		UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("Failed to retrieve dynamic text asset from weakObject(%s)"), *GetNameSafe(weakObject.Get()));
 		return;
 	}
 
-	dataObject->GetOnDynamicTextAssetIdChanged().AddSP(this, &FSGDynamicTextAssetIdentityCustomization::RefreshId);
-	dataObject->GetOnUserFacingIdChanged().AddSP(this, &FSGDynamicTextAssetIdentityCustomization::RefreshUserFacingId);
-	dataObject->GetOnVersionChanged().AddSP(this, &FSGDynamicTextAssetIdentityCustomization::RefreshVersion);
+	provider->GetOnDynamicTextAssetIdChanged().AddSP(this, &FSGDynamicTextAssetIdentityCustomization::RefreshId);
+	provider->GetOnUserFacingIdChanged().AddSP(this, &FSGDynamicTextAssetIdentityCustomization::RefreshUserFacingId);
+	provider->GetOnVersionChanged().AddSP(this, &FSGDynamicTextAssetIdentityCustomization::RefreshVersion);
 
 	// Get the Identity category and move it to the top (sort order 0)
 	IDetailCategoryBuilder& identityCategory = DetailBuilder.EditCategory(
@@ -67,15 +68,21 @@ void FSGDynamicTextAssetIdentityCustomization::CustomizeDetails(IDetailLayoutBui
 	{
 		DetailBuilder.HideProperty(versionHandle);
 	}
+	FText fileFormatVersion = FText::GetEmpty();
+	if (TSharedPtr<ISGDynamicTextAssetSerializer> serializer = USGDynamicTextAssetStatics::FindSerializerForDynamicTextAssetId(provider->GetDynamicTextAssetId()))
+	{
+		fileFormatVersion = serializer->GetFileFormatVersion().ToText();
+	}
 
 	identityCategory.AddCustomRow(INVTEXT("Identity Properties"))
 		.WholeRowContent()
 		.HAlign(HAlign_Fill)
 		[
 			SAssignNew(IdentityBlock, SSGDynamicTextAssetIdentityBlock)
-			.DynamicTextAssetId(GetIdText(dataObject))
-			.UserFacingId(GetUserFacingIdText(dataObject))
-			.Version(GetVersionText(dataObject))
+			.DynamicTextAssetId(GetIdText(provider))
+			.UserFacingId(GetUserFacingIdText(provider))
+			.Version(GetVersionText(provider))
+			.FileFormatVersion(fileFormatVersion)
 		];
 }
 
@@ -147,5 +154,5 @@ FText FSGDynamicTextAssetIdentityCustomization::GetUserFacingIdText(const TScrip
 
 FText FSGDynamicTextAssetIdentityCustomization::GetVersionText(const TScriptInterface<ISGDynamicTextAssetProvider>& InDynamicTextAsset) const
 {
-	return FText::FromString(InDynamicTextAsset->GetVersion().ToString());
+	return InDynamicTextAsset->GetVersion().ToText();
 }
