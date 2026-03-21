@@ -78,7 +78,7 @@ All methods are inherited from `ISGDynamicTextAssetSerializer`. See [SerializerI
 | `SerializeProvider` | Converts a provider's properties to formatted JSON with consistent indentation (UTF-8) |
 | `DeserializeProvider` | Parses JSON, extracts metadata, checks version compatibility, triggers migration if needed, then populates UPROPERTY fields via reflection |
 | `ValidateStructure` | Validates that a JSON string has the correct structure (`metadata` block with `type`/`id`/`version`/`userfacingid`, and `data` block) without creating or modifying any objects |
-| `ExtractMetadata` | Extracts all four metadata fields without full deserialization, useful for scanning and indexing |
+| `ExtractFileInfo` | Extracts all four file information fields without full deserialization, useful for scanning and indexing |
 | `UpdateFieldsInPlace` | Updates metadata fields within an already-serialized JSON string in-place (used by Rename and Duplicate operations) |
 | `GetDefaultFileContent` | Generates the initial JSON file content for a new dynamic text asset with metadata and empty data block |
 | `GetSerializerTypeId` | Returns `1` |

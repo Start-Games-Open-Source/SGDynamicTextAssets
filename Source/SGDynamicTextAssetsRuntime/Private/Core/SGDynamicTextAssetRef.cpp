@@ -9,7 +9,7 @@
 #include "Engine/StreamableManager.h"
 #include "Engine/World.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "SGDynamicTextAssetLogs.h"
 #include "Subsystem/SGDynamicTextAssetSubsystem.h"
 
@@ -45,8 +45,8 @@ FString FSGDynamicTextAssetRef::GetUserFacingId() const
         return FString();
     }
 
-    const FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-    return metadata.bIsValid ? metadata.UserFacingId : FString();
+    const FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+    return fileInfo.bIsValid ? fileInfo.UserFacingId : FString();
 }
 
 void FSGDynamicTextAssetRef::SetId(const FSGDynamicTextAssetId& InId)

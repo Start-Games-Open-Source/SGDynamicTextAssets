@@ -44,10 +44,10 @@ public:
 		return true;
 	}
 
-	virtual bool ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const override
+	virtual bool ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const override
 	{
-		OutMetadata.AssetTypeId.Invalidate();
-		OutMetadata.bIsValid = false;
+		OutFileInfo.AssetTypeId.Invalidate();
+		OutFileInfo.bIsValid = false;
 		return false;
 	}
 	virtual bool UpdateFieldsInPlace(FString& InOutContents,
@@ -101,10 +101,10 @@ public:
 		return true;
 	}
 
-	virtual bool ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const override
+	virtual bool ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const override
 	{
-		OutMetadata.AssetTypeId.Invalidate();
-		OutMetadata.bIsValid = false;
+		OutFileInfo.AssetTypeId.Invalidate();
+		OutFileInfo.bIsValid = false;
 		return false;
 	}
 	virtual bool UpdateFieldsInPlace(FString& InOutContents,

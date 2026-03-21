@@ -29,19 +29,19 @@ bool ISGDynamicTextAssetSerializer::ExtractMetadata(const FString& InString, FSG
 	FString& OutClassName, FString& OutUserFacingId, FString& OutVersion,
 	FSGDynamicTextAssetTypeId& OutAssetTypeId) const
 {
-	FSGDynamicTextAssetFileMetadata metadata;
-	if (!ExtractMetadata(InString, metadata))
+	FSGDynamicTextAssetFileInfo fileInfo;
+	if (!ExtractFileInfo(InString, fileInfo))
 	{
 		OutAssetTypeId.Invalidate();
 		OutClassName.Empty();
 		return false;
 	}
 
-	OutId = metadata.Id;
-	OutClassName = metadata.ClassName;
-	OutUserFacingId = metadata.UserFacingId;
-	OutVersion = metadata.Version.ToString();
-	OutAssetTypeId = metadata.AssetTypeId;
+	OutId = fileInfo.Id;
+	OutClassName = fileInfo.ClassName;
+	OutUserFacingId = fileInfo.UserFacingId;
+	OutVersion = fileInfo.Version.ToString();
+	OutAssetTypeId = fileInfo.AssetTypeId;
 	return true;
 }
 

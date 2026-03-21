@@ -8,7 +8,7 @@
 #include "Core/SGDynamicTextAssetTypeId.h"
 #include "Core/SGDynamicTextAssetBundleData.h"
 #include "Core/SGDynamicTextAssetVersion.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 
 struct FSlateBrush;
 class ISGDynamicTextAssetProvider;
@@ -119,19 +119,19 @@ public:
 	virtual bool ValidateStructure(const FString& InString, FString& OutErrorMessage) const = 0;
 
 	/**
-	 * Extracts metadata from a serialized string into a struct without full deserialization.
+	 * Extracts file information from a serialized string into a struct without full deserialization.
 	 *
 	 * @param InString The serialized string
-	 * @param OutMetadata Populated with extracted file metadata
+	 * @param OutFileInfo Populated with extracted file information
 	 * @return True if extraction succeeded
 	 */
-	virtual bool ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const = 0;
+	virtual bool ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const = 0;
 
 	/**
-	 * Extracts metadata from a serialized string without full deserialization.
-	 * @deprecated Use the FSGDynamicTextAssetFileMetadata overload instead.
+	 * Extracts file information from a serialized string without full deserialization.
+	 * @deprecated Use the ISGDynamicTextAssetSerializer::ExtractFileInfo instead. Will be removed in 5.7
 	 */
-	UE_DEPRECATED(5.6, "Use the FSGDynamicTextAssetFileMetadata overload instead.")
+	UE_DEPRECATED(5.6, "Use the ISGDynamicTextAssetSerializer::ExtractFileInfo instead. Will be removed in 5.7")
 	virtual bool ExtractMetadata(const FString& InString,
 		FSGDynamicTextAssetId& OutId,
 		FString& OutClassName,
@@ -140,7 +140,7 @@ public:
 		FSGDynamicTextAssetTypeId& OutAssetTypeId) const;
 
 	/**
-	 * Updates one or more metadata fields within an already-serialized string in-place,
+	 * Updates one or more file information fields within an already-serialized string in-place,
 	 * without fully deserializing into a provider object.
 	 * Used by Rename and Duplicate operations to patch UserFacingId and/or Id.
 	 *
@@ -228,7 +228,7 @@ public:
 	static const FString KEY_METADATA_LEGACY;
 
 	/**
-	 * Key for the type identifier inside the metadata block.
+	 * Key for the type identifier inside the file information block.
 	 * Currently stores class name string (e.g., "UWeaponData").
 	 * Will store FSGDynamicTextAssetTypeId GUID string after serializer migration.
 	 * Value: "type"
@@ -236,25 +236,25 @@ public:
 	static const FString KEY_TYPE;
 
 	/**
-	 * Key for the semantic version string inside the metadata block.
+	 * Key for the semantic version string inside the file information block.
 	 * Value: "version"
 	 */
 	static const FString KEY_VERSION;
 
 	/**
-	 * Key for the dynamic text asset GUID inside the metadata block.
+	 * Key for the dynamic text asset GUID inside the file information block.
 	 * Value: "id"
 	 */
 	static const FString KEY_ID;
 
 	/**
-	 * Key for the human-readable identifier inside the metadata block.
+	 * Key for the human-readable identifier inside the file information block.
 	 * Value: "userfacingid"
 	 */
 	static const FString KEY_USER_FACING_ID;
 
 	/**
-	 * Key for the file format version string inside the metadata block.
+	 * Key for the file format version string inside the file information block.
 	 * Tracks structural changes to the serialization format itself,
 	 * independent of the asset data versioning stored in KEY_VERSION.
 	 * Files missing this field are assumed to be format version 1.0.0.
@@ -263,7 +263,7 @@ public:
 	static const FString KEY_FILE_FORMAT_VERSION;
 
 	/**
-	 * Key for the property data block at the root level alongside metadata.
+	 * Key for the property data block at the root level alongside file information.
 	 * Value: "data"
 	 */
 	static const FString KEY_DATA;

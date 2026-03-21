@@ -110,7 +110,7 @@ All methods are inherited from `ISGDynamicTextAssetSerializer`. See [SerializerI
 | `SerializeProvider` | Converts a provider's properties to YAML via fkYAML's emitter |
 | `DeserializeProvider` | Parses YAML via `fkyaml::node::deserialize()`, reconstructs `FJsonObject` tree from YAML nodes, then populates UPROPERTY fields via reflection |
 | `ValidateStructure` | Validates that a YAML string parses correctly and has the required structure (`sgFileInformation` and `data` mappings at root level) |
-| `ExtractMetadata` | Extracts all four file information fields from the `sgFileInformation` mapping without full deserialization |
+| `ExtractFileInfo` | Extracts all four file information fields from the `sgFileInformation` mapping without full deserialization |
 | `UpdateFieldsInPlace` | Updates metadata fields within an already-serialized YAML string in-place |
 | `GetDefaultFileContent` | Generates the initial YAML file content for a new dynamic text asset |
 | `GetSerializerTypeId` | Returns `3` |

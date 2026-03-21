@@ -4,7 +4,7 @@
 
 #include "SGDynamicTextAssetEditorLogs.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Utilities/SGDynamicTextAssetCookUtils.h"
 #include "Misc/Paths.h"
 
@@ -101,15 +101,15 @@ int32 USGDynamicTextAssetCookCommandlet::Main(const FString& Params)
 			// Apply class filter if specified
 			if (!classFilter.IsEmpty())
 			{
-				FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-				if (!metadata.bIsValid)
+				FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+				if (!fileInfo.bIsValid)
 				{
 					continue;
 				}
 
 				// Normalize: strip leading 'U' for comparison if present
 				FString filterName = classFilter;
-				FString className = metadata.ClassName;
+				FString className = fileInfo.ClassName;
 
 				if (filterName.Len() > 1 && filterName[0] == TEXT('U') && FChar::IsUpper(filterName[1]))
 				{

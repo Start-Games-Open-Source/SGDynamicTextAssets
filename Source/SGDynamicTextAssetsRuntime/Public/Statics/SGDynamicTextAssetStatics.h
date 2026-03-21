@@ -85,7 +85,7 @@ public:
 	static FSGDynamicTextAssetId GetDynamicTextAssetRefId(const FSGDynamicTextAssetRef& Ref);
 
 	/**
-	 * Returns the user-facing ID for the referenced dynamic text asset by resolving its file metadata.
+	 * Returns the user-facing ID for the referenced dynamic text asset by resolving its file information.
 	 * Works in any context editor, runtime, without a world or game instance.
 	 * Returns an empty string if the ID is invalid or no matching file is found.
 	 *

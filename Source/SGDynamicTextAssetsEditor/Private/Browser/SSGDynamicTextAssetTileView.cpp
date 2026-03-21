@@ -6,7 +6,7 @@
 #include "Browser/SSGDynamicTextAssetRenameDialog.h"
 #include "Editor/FSGDynamicTextAssetEditorToolkit.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "ReferenceViewer/SSGDynamicTextAssetReferenceViewer.h"
 #include "SGDynamicTextAssetEditorLogs.h"
@@ -523,12 +523,12 @@ TSharedPtr<SWidget> SSGDynamicTextAssetTileView::GenerateContextMenu()
                 // Notify any open editor about the rename so it updates its file path and title
                 FSGDynamicTextAssetEditorToolkit::NotifyFileRenamed(oldFilePath, newFilePath);
 
-                // Extract metadata from the new file to update the list item
-                FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(newFilePath);
-                if (metadata.bIsValid)
+                // Extract file info from the new file to update the list item
+                FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(newFilePath);
+                if (fileInfo.bIsValid)
                 {
                     // Update the selected item in-place
-                    selectedItem->UserFacingId = metadata.UserFacingId;
+                    selectedItem->UserFacingId = fileInfo.UserFacingId;
                     selectedItem->FilePath = newFilePath;
 
                     // Re-sort AllItems by UserFacingId
@@ -580,25 +580,25 @@ TSharedPtr<SWidget> SSGDynamicTextAssetTileView::GenerateContextMenu()
             {
                 UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Duplicated dynamic text asset via context menu: %s"), *createdFilePath);
 
-                // Extract metadata to create the new list item
-                FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(createdFilePath);
-                if (metadata.bIsValid)
+                // Extract file info to create the new list item
+                FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(createdFilePath);
+                if (fileInfo.bIsValid)
                 {
                     // Resolve class via Asset Type ID (O(1) map lookup)
                     UClass* itemClass = nullptr;
                     if (USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
                     {
-                        itemClass = registry->ResolveClassForTypeId(metadata.AssetTypeId);
+                        itemClass = registry->ResolveClassForTypeId(fileInfo.AssetTypeId);
                     }
 
                     // Add the new item to AllItems
                     TSharedPtr<FSGDynamicTextAssetListItem> newItem = MakeShared<FSGDynamicTextAssetListItem>(
                         createdId,
-                        metadata.UserFacingId,
+                        fileInfo.UserFacingId,
                         createdFilePath,
                         itemClass ? itemClass : selectedItem->DynamicTextAssetClass.Get(),
-                        metadata.AssetTypeId,
-                        metadata.SerializerTypeId
+                        fileInfo.AssetTypeId,
+                        fileInfo.SerializerTypeId
                     );
                     AllItems.Add(newItem);
 

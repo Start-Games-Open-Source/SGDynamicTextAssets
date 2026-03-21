@@ -10,7 +10,7 @@
 #include "Engine/Engine.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
 #include "Serialization/SGDynamicTextAssetSerializer.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "SGDynamicTextAssetLogs.h"
 #include "Subsystem/SGDynamicTextAssetSubsystem.h"
 #include "Engine/GameInstance.h"
@@ -81,10 +81,10 @@ bool USGDynamicTextAssetStatics::SetDynamicTextAssetRefByUserFacingId(FSGDynamic
 
 	for (const FString& filePath : filePaths)
 	{
-		FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-		if (metadata.bIsValid && metadata.UserFacingId.Equals(UserFacingId, ESearchCase::IgnoreCase))
+		FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+		if (fileInfo.bIsValid && fileInfo.UserFacingId.Equals(UserFacingId, ESearchCase::IgnoreCase))
 		{
-			Ref.SetId(metadata.Id);
+			Ref.SetId(fileInfo.Id);
 			return true;
 		}
 	}
@@ -184,10 +184,10 @@ void USGDynamicTextAssetStatics::GetAllDynamicTextAssetIdsByClass(UClass* Dynami
 
 	for (const FString& filePath : filePaths)
 	{
-		FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-		if (metadata.bIsValid)
+		FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+		if (fileInfo.bIsValid)
 		{
-			OutIds.Add(metadata.Id);
+			OutIds.Add(fileInfo.Id);
 		}
 	}
 }
@@ -207,10 +207,10 @@ void USGDynamicTextAssetStatics::GetAllDynamicTextAssetUserFacingIdsByClass(UCla
 
 	for (const FString& filePath : filePaths)
 	{
-		FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-		if (metadata.bIsValid)
+		FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+		if (fileInfo.bIsValid)
 		{
-			OutUserFacingIds.Add(metadata.UserFacingId);
+			OutUserFacingIds.Add(fileInfo.UserFacingId);
 		}
 	}
 }
@@ -262,18 +262,18 @@ UClass* USGDynamicTextAssetStatics::GetDynamicTextAssetTypeFromId(const FSGDynam
 
 	for (const FString& filePath : outFiles)
 	{
-		const FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-		if (!metadata.bIsValid || !metadata.Id.IsValid())
+		const FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+		if (!fileInfo.bIsValid || !fileInfo.Id.IsValid())
 		{
 			continue;
 		}
-		if (metadata.Id != Id)
+		if (fileInfo.Id != Id)
 		{
 			continue;
 		}
 		// Relying on editor, cook, and deserialization validation to ensure its a valid dynamic text asset
 		// otherwise this would return null.
-		return FindFirstObject<UClass>(*metadata.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
+		return FindFirstObject<UClass>(*fileInfo.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
 	}
 	return nullptr;
 }

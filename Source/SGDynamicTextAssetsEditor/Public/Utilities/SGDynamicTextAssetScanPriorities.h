@@ -12,7 +12,7 @@
 namespace SGDynamicTextAssetScanPriorities
 {
 	// Project info (format versions) runs first since it is lightweight
-	// (metadata-only extraction) and the major version upgrade check
+	// (file-info-only extraction) and the major version upgrade check
 	// needs the result as early as possible.
 	static constexpr int32 PROJECT_INFO = 10;
 

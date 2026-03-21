@@ -131,7 +131,7 @@ All methods are inherited from `ISGDynamicTextAssetSerializer`. See [SerializerI
 | `SerializeProvider` | Converts a provider's properties to formatted XML with 4-space indentation (UTF-8) |
 | `DeserializeProvider` | Parses XML via `FXmlFile`, reconstructs `FJsonObject` tree from XML elements, then populates UPROPERTY fields via reflection |
 | `ValidateStructure` | Validates that an XML string parses correctly and has the required structure (`<DynamicTextAsset>` root with `<sgFileInformation>` and `<data>` children) |
-| `ExtractMetadata` | Extracts all four metadata fields from the `<sgFileInformation>` element without full deserialization |
+| `ExtractFileInfo` | Extracts all four file information fields from the `<sgFileInformation>` element without full deserialization |
 | `UpdateFieldsInPlace` | Updates metadata fields within an already-serialized XML string in-place |
 | `GetDefaultFileContent` | Generates the initial XML file content for a new dynamic text asset |
 | `GetSerializerTypeId` | Returns `2` |

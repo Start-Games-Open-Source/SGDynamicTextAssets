@@ -43,7 +43,7 @@ The core interface that all serializers implement. Defined in `SGDynamicTextAsse
 | `SerializeProvider` | `bool SerializeProvider(const ISGDynamicTextAssetProvider*, FString&) const` | Serializes a provider to string |
 | `DeserializeProvider` | `bool DeserializeProvider(const FString&, ISGDynamicTextAssetProvider*, bool&) const` | Deserializes a string into a provider |
 | `ValidateStructure` | `bool ValidateStructure(const FString&, FString&) const` | Validates format structure without creating objects |
-| `ExtractMetadata` | `bool ExtractMetadata(const FString&, FSGDynamicTextAssetId&, FString&, FString&, FString&, FSGDynamicTextAssetTypeId&) const` | Extracts metadata without full deserialization |
+| `ExtractFileInfo` | `bool ExtractFileInfo(const FString&, FSGDynamicTextAssetFileInfo&) const` | Extracts file information without full deserialization |
 | `UpdateFieldsInPlace` | `bool UpdateFieldsInPlace(FString&, const TMap<FString, FString>&) const` | Patches metadata fields in a serialized string |
 | `GetFileFormatVersion` | `FSGDynamicTextAssetVersion GetFileFormatVersion() const` | Returns the serializer's current file format version |
 | `GetDefaultFileContent` | `FString GetDefaultFileContent(const UClass*, const FSGDynamicTextAssetId&, const FString&) const` | Generates initial file content for new assets |

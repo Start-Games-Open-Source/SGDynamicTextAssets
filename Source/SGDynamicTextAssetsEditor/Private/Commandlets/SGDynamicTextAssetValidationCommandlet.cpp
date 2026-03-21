@@ -6,7 +6,7 @@
 #include "Core/SGDynamicTextAsset.h"
 #include "Core/SGDynamicTextAssetRef.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Serialization/SGDynamicTextAssetSerializer.h"
 #include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/IAssetRegistry.h"
@@ -126,10 +126,10 @@ void USGDynamicTextAssetValidationCommandlet::CollectKnownIds(TSet<FSGDynamicTex
 			continue;
 		}
 
-		const FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-		if (metadata.bIsValid && metadata.Id.IsValid())
+		const FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+		if (fileInfo.bIsValid && fileInfo.Id.IsValid())
 		{
-			OutKnownIds.Add(metadata.Id);
+			OutKnownIds.Add(fileInfo.Id);
 		}
 	}
 }
@@ -215,9 +215,9 @@ void USGDynamicTextAssetValidationCommandlet::ValidateDynamicTextAssetFiles(
 			continue;
 		}
 
-		// Extract metadata for display
-		const FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-		if (!metadata.bIsValid)
+		// Extract file information for display
+		const FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+		if (!fileInfo.bIsValid)
 		{
 			continue;
 		}
@@ -231,7 +231,7 @@ void USGDynamicTextAssetValidationCommandlet::ValidateDynamicTextAssetFiles(
 		UClass* dataObjectClass = nullptr;
 		for (TObjectIterator<UClass> classIt; classIt; ++classIt)
 		{
-			if (classIt->GetName() == metadata.ClassName && classIt->ImplementsInterface(USGDynamicTextAssetProvider::StaticClass()))
+			if (classIt->GetName() == fileInfo.ClassName && classIt->ImplementsInterface(USGDynamicTextAssetProvider::StaticClass()))
 			{
 				dataObjectClass = *classIt;
 				break;
@@ -256,14 +256,14 @@ void USGDynamicTextAssetValidationCommandlet::ValidateDynamicTextAssetFiles(
 			continue;
 		}
 
-		const FString displayName = metadata.UserFacingId.IsEmpty()
+		const FString displayName = fileInfo.UserFacingId.IsEmpty()
 			? FSGDynamicTextAssetFileManager::ExtractUserFacingIdFromPath(filePath)
-			: metadata.UserFacingId;
+			: fileInfo.UserFacingId;
 		filesScanned++;
 
 		if (bVerbose)
 		{
-			UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("  Scanning DynamicTextAsset: %s (%s)"), *displayName, *metadata.ClassName);
+			UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("  Scanning DynamicTextAsset: %s (%s)"), *displayName, *fileInfo.ClassName);
 		}
 
 		for (TFieldIterator<FProperty> propIt(dataObjectClass); propIt; ++propIt)

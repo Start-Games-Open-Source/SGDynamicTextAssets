@@ -365,8 +365,8 @@ bool FSGDynamicTextAssetBinarySerializer::ConvertJsonFileToBinary(
 	}
 
 	// Extract ID and Asset Type ID
-	FSGDynamicTextAssetFileMetadata binMeta;
-	if (!serializer->ExtractMetadata(fileContents, binMeta) || !binMeta.Id.IsValid())
+	FSGDynamicTextAssetFileInfo binMeta;
+	if (!serializer->ExtractFileInfo(fileContents, binMeta) || !binMeta.Id.IsValid())
 	{
 		UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetBinarySerializer: Failed to extract valid ID from (%s)"), *JsonFilePath);
 		return false;

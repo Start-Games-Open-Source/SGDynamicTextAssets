@@ -30,7 +30,7 @@ SGDynamicTextAssets/
         Management/
           SGDynamicTextAssetRegistry.h       # EngineSubsystem for class registration
           SGDynamicTextAssetFileManager.h    # Static file path and I/O utilities
-          SGDynamicTextAssetFileMetadata.h   # File metadata extraction struct
+          SGDynamicTextAssetFileInfo.h       # File information extraction struct
           SGDynamicTextAssetCookManifest.h   # Cook manifest read/write
           SGDynamicTextAssetTypeManifest.h   # Type manifest for class hierarchy
         Serialization/

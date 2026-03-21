@@ -4,7 +4,7 @@
 
 #include "Editor.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Serialization/SGDynamicTextAssetSerializer.h"
 #include "SGDynamicTextAssetEditorLogs.h"
 #include "SGDynamicTextAssetTickerSubsystem.h"
@@ -218,11 +218,11 @@ bool USGDynamicTextAssetScanSubsystem::ProcessOneProjectInfoItem()
 	}
 
 	const FString filePath = PendingProjectInfoFiles.Pop(EAllowShrinking::No);
-	const FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
+	const FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
 
-	if (metadata.bIsValid && metadata.SerializerTypeId != ISGDynamicTextAssetSerializer::INVALID_SERIALIZER_TYPE_ID)
+	if (fileInfo.bIsValid && fileInfo.SerializerTypeId != ISGDynamicTextAssetSerializer::INVALID_SERIALIZER_TYPE_ID)
 	{
-		ProjectInfoCache.RecordFileVersion(metadata.SerializerTypeId, metadata.FileFormatVersion);
+		ProjectInfoCache.RecordFileVersion(fileInfo.SerializerTypeId, fileInfo.FileFormatVersion);
 	}
 
 	return !PendingProjectInfoFiles.IsEmpty();

@@ -10,7 +10,7 @@
 #include "Core/SGDynamicTextAssetId.h"
 #include "Editor/FSGDynamicTextAssetEditorToolkit.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "ReferenceViewer/SSGDynamicTextAssetReferenceViewer.h"
 #include "SGDynamicTextAssetEditorLogs.h"
@@ -492,28 +492,28 @@ void SSGDynamicTextAssetBrowser::RefreshTileViewForSelectedType()
         FSGDynamicTextAssetFileManager::FindAllDynamicTextAssetFiles(filePaths);
     }
 
-    // Extract metadata from each file and build list items
+    // Extract file info from each file and build list items
     for (const FString& filePath : filePaths)
     {
-        FSGDynamicTextAssetFileMetadata metadata =
-            FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
+        FSGDynamicTextAssetFileInfo fileInfo =
+            FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
 
-        if (metadata.bIsValid)
+        if (fileInfo.bIsValid)
         {
             // Resolve class via Asset Type ID (O(1) map lookup)
             UClass* itemClass = nullptr;
             if (USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
             {
-                itemClass = registry->ResolveClassForTypeId(metadata.AssetTypeId);
+                itemClass = registry->ResolveClassForTypeId(fileInfo.AssetTypeId);
             }
 
             TSharedPtr<FSGDynamicTextAssetListItem> item = MakeShared<FSGDynamicTextAssetListItem>(
-                metadata.Id,
-                metadata.UserFacingId,
+                fileInfo.Id,
+                fileInfo.UserFacingId,
                 filePath,
                 itemClass ? itemClass : SelectedTypeClass.Get(),
-                metadata.AssetTypeId,
-                metadata.SerializerTypeId
+                fileInfo.AssetTypeId,
+                fileInfo.SerializerTypeId
             );
             items.Add(item);
         }

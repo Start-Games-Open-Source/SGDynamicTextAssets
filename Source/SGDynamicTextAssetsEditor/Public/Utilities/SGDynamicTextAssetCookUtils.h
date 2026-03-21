@@ -52,7 +52,7 @@ public:
 
 	/**
 	 * Cooks a single .dta.json file to flat ID-named binary format.
-	 * Extracts metadata (ID, ClassName, UserFacingId) from the JSON,
+	 * Extracts file information (ID, ClassName, UserFacingId) from the JSON,
 	 * converts to compressed binary, writes {Id}.dta.bin to OutputDirectory,
 	 * and adds an entry to the manifest.
 	 *

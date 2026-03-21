@@ -37,7 +37,7 @@ public:
  *
  * Produced during cooking alongside flat ID-named binary files.
  * Maps ID -> ClassName + UserFacingId, enabling class-based lookups
- * and metadata queries in packaged builds without decompressing binaries.
+ * and file info queries in packaged builds without decompressing binaries.
  *
  * Binary format (dta_manifest.bin):
  *   [Header: 32 bytes - FSGDynamicTextAssetCookManifestBinaryHeader]

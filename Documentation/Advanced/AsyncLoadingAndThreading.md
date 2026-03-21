@@ -35,7 +35,7 @@ Game Thread                          Background Thread
     |                                       |
     | 6. Check weakThis.Get() validity      |
     | 7. Find serializer (by TypeId or ext) |
-    | 8. ExtractMetadata → check cache      |
+    | 8. ExtractFileInfo → check cache       |
     |    (may have loaded during async)     |
     | 9. NewObject<UObject>(this, ClassPtr) |
     | 10. DeserializeProvider()             |

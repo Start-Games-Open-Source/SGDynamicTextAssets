@@ -215,8 +215,8 @@ void USGDynamicTextAssetSubsystem::Internal_LoadDynamicTextAssetFromFileAsync_Ga
     }
 
     // Check cache first (in case it was loaded synchronously while we were reading)
-    FSGDynamicTextAssetFileMetadata extractedMeta;
-    if (serializer->ExtractMetadata(TextPayload, extractedMeta))
+    FSGDynamicTextAssetFileInfo extractedMeta;
+    if (serializer->ExtractFileInfo(TextPayload, extractedMeta))
     {
         TScriptInterface<ISGDynamicTextAssetProvider> cached = GetDynamicTextAsset(extractedMeta.Id);
         if (cached.GetObject())
@@ -345,7 +345,7 @@ TScriptInterface<ISGDynamicTextAssetProvider> USGDynamicTextAssetSubsystem::Load
 
     if (!DynamicTextAssetClass)
     {
-        // Try extracting metadata first to resolve the class implicitly.
+        // Try extracting file info first to resolve the class implicitly.
         FString jsonContents;
         uint32 classResolveTypeId = ISGDynamicTextAssetSerializer::INVALID_SERIALIZER_TYPE_ID;
         if (FSGDynamicTextAssetFileManager::ReadRawFileContents(FilePath, jsonContents, &classResolveTypeId))
@@ -355,8 +355,8 @@ TScriptInterface<ISGDynamicTextAssetProvider> USGDynamicTextAssetSubsystem::Load
                 : FSGDynamicTextAssetFileManager::FindSerializerForFile(FilePath);
             if (serializer.IsValid())
             {
-                FSGDynamicTextAssetFileMetadata fileMeta;
-                if (serializer->ExtractMetadata(jsonContents, fileMeta))
+                FSGDynamicTextAssetFileInfo fileMeta;
+                if (serializer->ExtractFileInfo(jsonContents, fileMeta))
                 {
                     // Try AssetTypeId-based resolution first (reliable in cooked builds)
                     if (fileMeta.AssetTypeId.IsValid())
@@ -401,8 +401,8 @@ TScriptInterface<ISGDynamicTextAssetProvider> USGDynamicTextAssetSubsystem::Load
     }
 
     // Try to extract Id first to check cache
-    FSGDynamicTextAssetFileMetadata cacheLookupMeta;
-    if (serializer->ExtractMetadata(jsonContents, cacheLookupMeta))
+    FSGDynamicTextAssetFileInfo cacheLookupMeta;
+    if (serializer->ExtractFileInfo(jsonContents, cacheLookupMeta))
     {
         // Check if already cached
         TScriptInterface<ISGDynamicTextAssetProvider> cached = GetDynamicTextAsset(cacheLookupMeta.Id);
@@ -559,8 +559,8 @@ int32 USGDynamicTextAssetSubsystem::LoadAllDynamicTextAssetsOfClass(UClass* Dyna
             continue;
         }
 
-        FSGDynamicTextAssetFileMetadata classResolveMeta;
-        if (!serializer->ExtractMetadata(jsonContents, classResolveMeta))
+        FSGDynamicTextAssetFileInfo classResolveMeta;
+        if (!serializer->ExtractFileInfo(jsonContents, classResolveMeta))
         {
             UE_LOG(LogSGDynamicTextAssetsRuntime, Warning, TEXT("Could not extract class name from FilePath(%s)"), *filePath);
             continue;
@@ -742,8 +742,8 @@ void USGDynamicTextAssetSubsystem::LoadDynamicTextAssetAsync(const FSGDynamicTex
                      : FSGDynamicTextAssetFileManager::FindSerializerForFile(foundPath);
                  if (serializer.IsValid())
                  {
-                     FSGDynamicTextAssetFileMetadata asyncMeta;
-                     if (serializer->ExtractMetadata(textContents, asyncMeta))
+                     FSGDynamicTextAssetFileInfo asyncMeta;
+                     if (serializer->ExtractFileInfo(textContents, asyncMeta))
                      {
                           // Try AssetTypeId-based resolution first (reliable in cooked builds)
                           if (asyncMeta.AssetTypeId.IsValid())

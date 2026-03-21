@@ -50,7 +50,7 @@ USGDynamicTextAsset pointers.
 Uses Unreal's property reflection system to serialize and deserialize
 all UPROPERTY marked fields on USGDynamicTextAsset subclasses.
 
-JSON format uses a metadata wrapper block(sgFileInformation), for example:
+JSON format uses a file information block (sgFileInformation), for example:
 {
   "sgFileInformation": {
     "type": "UWeaponData",
@@ -99,8 +99,8 @@ bool FSGDynamicTextAssetJsonSerializer::SerializeProvider(const ISGDynamicTextAs
         return false;
     }
 
-    // Build metadata sub-object containing all identity fields
-    TSharedRef<FJsonObject> metadataObject = MakeShared<FJsonObject>();
+    // Build file information sub-object containing all identity fields
+    TSharedRef<FJsonObject> fileInfoObject = MakeShared<FJsonObject>();
 
     // Write Asset Type ID GUID to the type field, fall back to class name if unavailable
     FString typeString;
@@ -121,11 +121,11 @@ bool FSGDynamicTextAssetJsonSerializer::SerializeProvider(const ISGDynamicTextAs
         typeString = providerObject->GetClass()->GetName();
     }
 
-    metadataObject->SetStringField(KEY_TYPE, typeString);
-    metadataObject->SetStringField(KEY_VERSION, Provider->GetVersion().ToString());
-    metadataObject->SetStringField(KEY_ID, Provider->GetDynamicTextAssetId().ToString());
-    metadataObject->SetStringField(KEY_USER_FACING_ID, Provider->GetUserFacingId());
-    metadataObject->SetStringField(KEY_FILE_FORMAT_VERSION, GetFileFormatVersion().ToString());
+    fileInfoObject->SetStringField(KEY_TYPE, typeString);
+    fileInfoObject->SetStringField(KEY_VERSION, Provider->GetVersion().ToString());
+    fileInfoObject->SetStringField(KEY_ID, Provider->GetDynamicTextAssetId().ToString());
+    fileInfoObject->SetStringField(KEY_USER_FACING_ID, Provider->GetUserFacingId());
+    fileInfoObject->SetStringField(KEY_FILE_FORMAT_VERSION, GetFileFormatVersion().ToString());
 
     // Serialize properties into data block
     TSharedRef<FJsonObject> dataObject = MakeShared<FJsonObject>();
@@ -277,9 +277,9 @@ bool FSGDynamicTextAssetJsonSerializer::SerializeProvider(const ISGDynamicTextAs
         }
     }
 
-    // Build root object: metadata wrapper + data block + optional bundles
+    // Build root object: file information block + data block + optional bundles
     TSharedRef<FJsonObject> rootObject = MakeShared<FJsonObject>();
-    rootObject->SetObjectField(KEY_FILE_INFORMATION, metadataObject);
+    rootObject->SetObjectField(KEY_FILE_INFORMATION, fileInfoObject);
     rootObject->SetObjectField(KEY_DATA, dataObject);
 
     if (bundlesObject.IsValid())
@@ -333,23 +333,23 @@ bool FSGDynamicTextAssetJsonSerializer::DeserializeProvider(const FString& InStr
         return false;
     }
 
-    // Extract metadata sub-object
-    const TSharedPtr<FJsonObject>* metadataObjectPtr;
-    if (!rootObject->TryGetObjectField(KEY_FILE_INFORMATION, metadataObjectPtr))
+    // Extract file information sub-object
+    const TSharedPtr<FJsonObject>* fileInfoObjectPtr;
+    if (!rootObject->TryGetObjectField(KEY_FILE_INFORMATION, fileInfoObjectPtr))
     {
-        rootObject->TryGetObjectField(KEY_METADATA_LEGACY, metadataObjectPtr);
+        rootObject->TryGetObjectField(KEY_METADATA_LEGACY, fileInfoObjectPtr);
     }
-    if (!metadataObjectPtr || !metadataObjectPtr->IsValid())
+    if (!fileInfoObjectPtr || !fileInfoObjectPtr->IsValid())
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetJsonSerializer: JSON missing '%s' (or legacy '%s') block"), *KEY_FILE_INFORMATION, *KEY_METADATA_LEGACY);
         return false;
     }
 
-    const TSharedPtr<FJsonObject>& metadataObject = *metadataObjectPtr;
+    const TSharedPtr<FJsonObject>& fileInfoObject = *fileInfoObjectPtr;
 
     // Validate class type matches  - type field may contain a GUID (new format) or class name (legacy)
     FString typeFieldValue;
-    if (metadataObject->TryGetStringField(KEY_TYPE, typeFieldValue))
+    if (fileInfoObject->TryGetStringField(KEY_TYPE, typeFieldValue))
     {
         FSGDynamicTextAssetTypeId fileTypeId = FSGDynamicTextAssetTypeId::FromString(typeFieldValue);
         if (fileTypeId.IsValid())
@@ -390,7 +390,7 @@ bool FSGDynamicTextAssetJsonSerializer::DeserializeProvider(const FString& InStr
 
     // Extract ID
     FString idString;
-    if (metadataObject->TryGetStringField(KEY_ID, idString))
+    if (fileInfoObject->TryGetStringField(KEY_ID, idString))
     {
         FSGDynamicTextAssetId id;
         if (id.ParseString(idString))
@@ -401,7 +401,7 @@ bool FSGDynamicTextAssetJsonSerializer::DeserializeProvider(const FString& InStr
 
     // Extract UserFacingId
     FString userFacingId;
-    if (metadataObject->TryGetStringField(KEY_USER_FACING_ID, userFacingId))
+    if (fileInfoObject->TryGetStringField(KEY_USER_FACING_ID, userFacingId))
     {
         OutProvider->SetUserFacingId(userFacingId);
     }
@@ -409,7 +409,7 @@ bool FSGDynamicTextAssetJsonSerializer::DeserializeProvider(const FString& InStr
     // Extract version
     FSGDynamicTextAssetVersion fileVersion;
     FString versionString;
-    if (metadataObject->TryGetStringField(KEY_VERSION, versionString))
+    if (fileInfoObject->TryGetStringField(KEY_VERSION, versionString))
     {
         fileVersion = FSGDynamicTextAssetVersion::ParseFromString(versionString);
         OutProvider->SetVersion(fileVersion);
@@ -418,7 +418,7 @@ bool FSGDynamicTextAssetJsonSerializer::DeserializeProvider(const FString& InStr
     // Extract file format version (missing = 1.0.0 for pre-format-version files)
     FSGDynamicTextAssetVersion fileFormatVersion(1, 0, 0);
     FString formatVersionString;
-    if (metadataObject->TryGetStringField(KEY_FILE_FORMAT_VERSION, formatVersionString))
+    if (fileInfoObject->TryGetStringField(KEY_FILE_FORMAT_VERSION, formatVersionString))
     {
         fileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(formatVersionString);
     }
@@ -631,28 +631,28 @@ bool FSGDynamicTextAssetJsonSerializer::ValidateStructure(const FString& InStrin
         return false;
     }
 
-    // Check for metadata wrapper
-    const TSharedPtr<FJsonObject>* metadataObjectPtr;
-    if (!rootObject->TryGetObjectField(KEY_FILE_INFORMATION, metadataObjectPtr))
+    // Check for file information block
+    const TSharedPtr<FJsonObject>* fileInfoObjectPtr;
+    if (!rootObject->TryGetObjectField(KEY_FILE_INFORMATION, fileInfoObjectPtr))
     {
-        rootObject->TryGetObjectField(KEY_METADATA_LEGACY, metadataObjectPtr);
+        rootObject->TryGetObjectField(KEY_METADATA_LEGACY, fileInfoObjectPtr);
     }
-    if (!metadataObjectPtr || !metadataObjectPtr->IsValid())
+    if (!fileInfoObjectPtr || !fileInfoObjectPtr->IsValid())
     {
         OutErrorMessage = FString::Printf(TEXT("Missing required block '%s' (or legacy '%s')"), *KEY_FILE_INFORMATION, *KEY_METADATA_LEGACY);
         return false;
     }
 
-    // Check type inside metadata
-    if (!(*metadataObjectPtr)->HasField(KEY_TYPE))
+    // Check type inside file information block
+    if (!(*fileInfoObjectPtr)->HasField(KEY_TYPE))
     {
-        OutErrorMessage = FString::Printf(TEXT("Missing required field KEY_TYPE(%s) inside metadata"), *KEY_TYPE);
+        OutErrorMessage = FString::Printf(TEXT("Missing required field KEY_TYPE(%s) inside file information block"), *KEY_TYPE);
         return false;
     }
 
     // If fileFormatVersion is present, validate it is a parseable version string
     FString formatVersionStr;
-    if ((*metadataObjectPtr)->TryGetStringField(KEY_FILE_FORMAT_VERSION, formatVersionStr))
+    if ((*fileInfoObjectPtr)->TryGetStringField(KEY_FILE_FORMAT_VERSION, formatVersionStr))
     {
         FSGDynamicTextAssetVersion parsedVersion = FSGDynamicTextAssetVersion::ParseFromString(formatVersionStr);
         if (!parsedVersion.IsValid())
@@ -674,10 +674,10 @@ bool FSGDynamicTextAssetJsonSerializer::ValidateStructure(const FString& InStrin
     return true;
 }
 
-bool FSGDynamicTextAssetJsonSerializer::ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const
+bool FSGDynamicTextAssetJsonSerializer::ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const
 {
-    OutMetadata = FSGDynamicTextAssetFileMetadata();
-    OutMetadata.SerializerTypeId = TYPE_ID;
+    OutFileInfo = FSGDynamicTextAssetFileInfo();
+    OutFileInfo.SerializerTypeId = TYPE_ID;
 
     TSharedPtr<FJsonObject> rootObject;
     TSharedRef<TJsonReader<>> reader = TJsonReaderFactory<>::Create(InString);
@@ -687,65 +687,65 @@ bool FSGDynamicTextAssetJsonSerializer::ExtractMetadata(const FString& InString,
         return false;
     }
 
-    // Extract from metadata sub-object
-    const TSharedPtr<FJsonObject>* metadataObjectPtr;
-    if (!rootObject->TryGetObjectField(KEY_FILE_INFORMATION, metadataObjectPtr))
+    // Extract from file information sub-object
+    const TSharedPtr<FJsonObject>* fileInfoObjectPtr;
+    if (!rootObject->TryGetObjectField(KEY_FILE_INFORMATION, fileInfoObjectPtr))
     {
-        rootObject->TryGetObjectField(KEY_METADATA_LEGACY, metadataObjectPtr);
+        rootObject->TryGetObjectField(KEY_METADATA_LEGACY, fileInfoObjectPtr);
     }
-    if (!metadataObjectPtr || !metadataObjectPtr->IsValid())
+    if (!fileInfoObjectPtr || !fileInfoObjectPtr->IsValid())
     {
         return false;
     }
 
-    const TSharedPtr<FJsonObject>& metadataObject = *metadataObjectPtr;
+    const TSharedPtr<FJsonObject>& fileInfoObject = *fileInfoObjectPtr;
 
     // Type field may contain a GUID (new format) or class name (legacy)
     FString typeFieldValue;
-    if (metadataObject->TryGetStringField(KEY_TYPE, typeFieldValue))
+    if (fileInfoObject->TryGetStringField(KEY_TYPE, typeFieldValue))
     {
         FSGDynamicTextAssetTypeId parsedTypeId = FSGDynamicTextAssetTypeId::FromString(typeFieldValue);
         if (parsedTypeId.IsValid())
         {
-            OutMetadata.AssetTypeId = parsedTypeId;
+            OutFileInfo.AssetTypeId = parsedTypeId;
 
             if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
             {
                 if (const UClass* resolvedClass = registry->ResolveClassForTypeId(parsedTypeId))
                 {
-                    OutMetadata.ClassName = resolvedClass->GetName();
+                    OutFileInfo.ClassName = resolvedClass->GetName();
                 }
             }
         }
         else
         {
-            OutMetadata.ClassName = typeFieldValue;
+            OutFileInfo.ClassName = typeFieldValue;
         }
     }
 
     FString idString;
-    if (metadataObject->TryGetStringField(KEY_ID, idString))
+    if (fileInfoObject->TryGetStringField(KEY_ID, idString))
     {
-        OutMetadata.Id.ParseString(idString);
+        OutFileInfo.Id.ParseString(idString);
     }
 
     FString versionString;
-    if (metadataObject->TryGetStringField(KEY_VERSION, versionString))
+    if (fileInfoObject->TryGetStringField(KEY_VERSION, versionString))
     {
-        OutMetadata.Version = FSGDynamicTextAssetVersion::ParseFromString(versionString);
+        OutFileInfo.Version = FSGDynamicTextAssetVersion::ParseFromString(versionString);
     }
 
-    metadataObject->TryGetStringField(KEY_USER_FACING_ID, OutMetadata.UserFacingId);
+    fileInfoObject->TryGetStringField(KEY_USER_FACING_ID, OutFileInfo.UserFacingId);
 
     // Extract file format version (missing = 1.0.0 for pre-format-version files)
     FString formatVersionString;
-    if (metadataObject->TryGetStringField(KEY_FILE_FORMAT_VERSION, formatVersionString))
+    if (fileInfoObject->TryGetStringField(KEY_FILE_FORMAT_VERSION, formatVersionString))
     {
-        OutMetadata.FileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(formatVersionString);
+        OutFileInfo.FileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(formatVersionString);
     }
 
-    OutMetadata.bIsValid = OutMetadata.AssetTypeId.IsValid() || !OutMetadata.ClassName.IsEmpty();
-    return OutMetadata.bIsValid;
+    OutFileInfo.bIsValid = OutFileInfo.AssetTypeId.IsValid() || !OutFileInfo.ClassName.IsEmpty();
+    return OutFileInfo.bIsValid;
 }
 
 bool FSGDynamicTextAssetJsonSerializer::UpdateFieldsInPlace(FString& InOutContents, const TMap<FString, FString>& FieldUpdates) const
@@ -770,27 +770,27 @@ bool FSGDynamicTextAssetJsonSerializer::UpdateFieldsInPlace(FString& InOutConten
         return false;
     }
 
-    // Get metadata sub-object
-    const TSharedPtr<FJsonObject>* metadataObjectPtr;
-    if (!rootObject->TryGetObjectField(KEY_FILE_INFORMATION, metadataObjectPtr))
+    // Get file information sub-object
+    const TSharedPtr<FJsonObject>* fileInfoObjectPtr;
+    if (!rootObject->TryGetObjectField(KEY_FILE_INFORMATION, fileInfoObjectPtr))
     {
-        rootObject->TryGetObjectField(KEY_METADATA_LEGACY, metadataObjectPtr);
+        rootObject->TryGetObjectField(KEY_METADATA_LEGACY, fileInfoObjectPtr);
     }
-    if (!metadataObjectPtr || !metadataObjectPtr->IsValid())
+    if (!fileInfoObjectPtr || !fileInfoObjectPtr->IsValid())
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetJsonSerializer::UpdateFieldsInPlace: Missing file information block"));
         return false;
     }
 
-    TSharedPtr<FJsonObject> metadataObject = *metadataObjectPtr;
+    TSharedPtr<FJsonObject> fileInfoObject = *fileInfoObjectPtr;
 
-    // Apply each field update to the metadata block
+    // Apply each field update to the file information block
     bool bAnyUpdated = false;
     for (const TPair<FString, FString>& update : FieldUpdates)
     {
-        if (metadataObject->HasField(update.Key))
+        if (fileInfoObject->HasField(update.Key))
         {
-            metadataObject->SetStringField(update.Key, update.Value);
+            fileInfoObject->SetStringField(update.Key, update.Value);
             bAnyUpdated = true;
         }
     }

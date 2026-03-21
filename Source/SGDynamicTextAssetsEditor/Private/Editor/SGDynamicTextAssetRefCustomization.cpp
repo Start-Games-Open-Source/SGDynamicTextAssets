@@ -11,7 +11,7 @@
 #include "HAL/PlatformApplicationMisc.h"
 #include "Input/Reply.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "SGDynamicTextAssetEditorLogs.h"
 #include "Widgets/Images/SImage.h"
@@ -246,18 +246,18 @@ void FSGDynamicTextAssetRefCustomization::RebuildPickerEntries()
 
 	UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("RebuildPickerEntries: FindAllDynamicTextAssetFiles returned %d file(s)"), filePaths.Num());
 
-	// Build picker entries from file metadata
+	// Build picker entries from file info
 	for (const FString& filePath : filePaths)
 	{
-		FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-		if (!metadata.bIsValid)
+		FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+		if (!fileInfo.bIsValid)
 		{
-			UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("RebuildPickerEntries: Skipping invalid metadata for FilePath(%s)"), *filePath);
+			UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("RebuildPickerEntries: Skipping invalid file info for FilePath(%s)"), *filePath);
 			continue;
 		}
 
 		// Check class filter from UPROPERTY metadata
-		if (metaFilterClass != nullptr && !metadata.ClassName.IsEmpty())
+		if (metaFilterClass != nullptr && !fileInfo.ClassName.IsEmpty())
 		{
 			USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get();
 			if (registry)
@@ -268,7 +268,7 @@ void FSGDynamicTextAssetRefCustomization::RebuildPickerEntries()
 				UClass* fileClass = nullptr;
 				for (UClass* registeredClass : allClasses)
 				{
-					if (registeredClass && registeredClass->GetName() == metadata.ClassName)
+					if (registeredClass && registeredClass->GetName() == fileInfo.ClassName)
 					{
 						fileClass = registeredClass;
 						break;
@@ -283,9 +283,9 @@ void FSGDynamicTextAssetRefCustomization::RebuildPickerEntries()
 		}
 
 		TSharedPtr<FPickerEntry> entry = MakeShared<FPickerEntry>();
-		entry->Id = metadata.Id;
-		entry->UserFacingId = metadata.UserFacingId;
-		entry->ClassName = metadata.ClassName;
+		entry->Id = fileInfo.Id;
+		entry->UserFacingId = fileInfo.UserFacingId;
+		entry->ClassName = fileInfo.ClassName;
 		entry->FilePath = filePath;
 		AllEntries.Add(entry);
 	}
@@ -609,7 +609,7 @@ void FSGDynamicTextAssetRefCustomization::ReadCurrentValues()
 		CurrentId = *static_cast<FSGDynamicTextAssetId*>(idValuePtr);
 	}
 
-	// Resolve display name from the pre-scanned file metadata (no world context needed)
+	// Resolve display name from the pre-scanned file info (no world context needed)
 	for (const TSharedPtr<FPickerEntry>& entry : AllEntries)
 	{
 		if (entry->Id == CurrentId)

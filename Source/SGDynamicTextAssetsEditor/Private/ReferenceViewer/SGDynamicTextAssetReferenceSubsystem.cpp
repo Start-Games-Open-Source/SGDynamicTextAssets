@@ -7,7 +7,7 @@
 #include "Core/ISGDynamicTextAssetProvider.h"
 #include "Core/SGDynamicTextAssetRef.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Serialization/SGDynamicTextAssetJsonSerializer.h"
 #include "Components/ActorComponent.h"
 #include "Dom/JsonObject.h"
@@ -111,16 +111,16 @@ void USGDynamicTextAssetReferenceSubsystem::FindDependencies(const FSGDynamicTex
 		return;
 	}
 
-	// Extract metadata to instantiate the correct type
-	FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-	if (!metadata.bIsValid)
+	// Extract file info to instantiate the correct type
+	FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+	if (!fileInfo.bIsValid)
 	{
 		return;
 	}
 
 	// Find the UClass using FindFirstObject which handles class lookup by name correctly
-	UClass* dataObjectClass = FindFirstObject<UClass>(*metadata.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
-	
+	UClass* dataObjectClass = FindFirstObject<UClass>(*fileInfo.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
+
 	// Verify it's a valid dynamic text asset class
 	if (dataObjectClass && !dataObjectClass->ImplementsInterface(USGDynamicTextAssetProvider::StaticClass()))
 	{
@@ -129,14 +129,14 @@ void USGDynamicTextAssetReferenceSubsystem::FindDependencies(const FSGDynamicTex
 
 	if (!dataObjectClass)
 	{
-		UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("FindDependencies: Could not find class '%s' for ID %s"), *metadata.ClassName, *Id.ToString());
+		UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("FindDependencies: Could not find class '%s' for ID %s"), *fileInfo.ClassName, *Id.ToString());
 		return;
 	}
 
 	// Skip abstract classes  - they cannot be instantiated
 	if (dataObjectClass->HasAnyClassFlags(CLASS_Abstract))
 	{
-		UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("FindDependencies: Class '%s' is abstract, cannot instantiate for ID %s"), *metadata.ClassName, *Id.ToString());
+		UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("FindDependencies: Class '%s' is abstract, cannot instantiate for ID %s"), *fileInfo.ClassName, *Id.ToString());
 		return;
 	}
 
@@ -649,15 +649,15 @@ void USGDynamicTextAssetReferenceSubsystem::ProcessDynamicTextAssetFile(const FS
 		return;
 	}
 
-	// Extract metadata for display
-	FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(FilePath);
-	if (!metadata.bIsValid)
+	// Extract file info for display
+	FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(FilePath);
+	if (!fileInfo.bIsValid)
 	{
 		return;
 	}
 
 	// Use FindFirstObject which handles class lookup by name correctly
-	UClass* dataObjectClass = FindFirstObject<UClass>(*metadata.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
+	UClass* dataObjectClass = FindFirstObject<UClass>(*fileInfo.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
 
 	// Verify it's a valid dynamic text asset class
 	if (!dataObjectClass || !dataObjectClass->ImplementsInterface(USGDynamicTextAssetProvider::StaticClass()))
@@ -698,9 +698,9 @@ void USGDynamicTextAssetReferenceSubsystem::ProcessDynamicTextAssetFile(const FS
 
 	// This dynamic text asset is the "source" - find what IDs it references
 	const FSoftObjectPath sourcePath(FilePath);
-	const FString displayName = metadata.UserFacingId.IsEmpty()
+	const FString displayName = fileInfo.UserFacingId.IsEmpty()
 		? FSGDynamicTextAssetFileManager::ExtractUserFacingIdFromPath(FilePath)
-		: metadata.UserFacingId;
+		: fileInfo.UserFacingId;
 
 	// Create/update cache entry
 	FSGReferenceCacheEntry& cacheEntry = PersistentAssetCache.FindOrAdd(FilePath);

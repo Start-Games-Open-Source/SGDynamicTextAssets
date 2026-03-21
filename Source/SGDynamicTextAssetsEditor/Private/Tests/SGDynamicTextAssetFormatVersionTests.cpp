@@ -5,7 +5,7 @@
 #include "Commandlets/SGDynamicTextAssetFormatVersionCommandlet.h"
 #include "Core/SGDynamicTextAssetVersion.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Serialization/SGDynamicTextAssetJsonSerializer.h"
 #include "Serialization/SGDynamicTextAssetXmlSerializer.h"
 #include "Serialization/SGDynamicTextAssetYamlSerializer.h"
@@ -114,16 +114,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FFormatVersion_Json_ReadFormatVersion::RunTest(const FString& Parameters)
 {
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetFileMetadata metadata;
+	FSGDynamicTextAssetFileInfo fileInfo;
 
 	const FString json = SGFormatVersionTestUtils::BuildJsonWithVersion(TEXT("2.3.1"));
-	const bool bResult = serializer.ExtractMetadata(json, metadata);
+	const bool bResult = serializer.ExtractFileInfo(json, fileInfo);
 
-	TestTrue(TEXT("ExtractMetadata should succeed"), bResult);
-	TestTrue(TEXT("Metadata should be valid"), metadata.bIsValid);
-	TestEqual(TEXT("Major should be 2"), metadata.FileFormatVersion.Major, static_cast<uint32>(2));
-	TestEqual(TEXT("Minor should be 3"), metadata.FileFormatVersion.Minor, static_cast<uint32>(3));
-	TestEqual(TEXT("Patch should be 1"), metadata.FileFormatVersion.Patch, static_cast<uint32>(1));
+	TestTrue(TEXT("ExtractFileInfo should succeed"), bResult);
+	TestTrue(TEXT("File info should be valid"), fileInfo.bIsValid);
+	TestEqual(TEXT("Major should be 2"), fileInfo.FileFormatVersion.Major, static_cast<uint32>(2));
+	TestEqual(TEXT("Minor should be 3"), fileInfo.FileFormatVersion.Minor, static_cast<uint32>(3));
+	TestEqual(TEXT("Patch should be 1"), fileInfo.FileFormatVersion.Patch, static_cast<uint32>(1));
 
 	return true;
 }
@@ -136,16 +136,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FFormatVersion_Json_MissingVersionDefaultsTo1_0_0::RunTest(const FString& Parameters)
 {
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetFileMetadata metadata;
+	FSGDynamicTextAssetFileInfo fileInfo;
 
 	const FString json = SGFormatVersionTestUtils::BuildJsonWithoutVersion();
-	const bool bResult = serializer.ExtractMetadata(json, metadata);
+	const bool bResult = serializer.ExtractFileInfo(json, fileInfo);
 
-	TestTrue(TEXT("ExtractMetadata should succeed"), bResult);
-	TestTrue(TEXT("Metadata should be valid"), metadata.bIsValid);
-	TestEqual(TEXT("Default Major should be 1"), metadata.FileFormatVersion.Major, static_cast<uint32>(1));
-	TestEqual(TEXT("Default Minor should be 0"), metadata.FileFormatVersion.Minor, static_cast<uint32>(0));
-	TestEqual(TEXT("Default Patch should be 0"), metadata.FileFormatVersion.Patch, static_cast<uint32>(0));
+	TestTrue(TEXT("ExtractFileInfo should succeed"), bResult);
+	TestTrue(TEXT("File info should be valid"), fileInfo.bIsValid);
+	TestEqual(TEXT("Default Major should be 1"), fileInfo.FileFormatVersion.Major, static_cast<uint32>(1));
+	TestEqual(TEXT("Default Minor should be 0"), fileInfo.FileFormatVersion.Minor, static_cast<uint32>(0));
+	TestEqual(TEXT("Default Patch should be 0"), fileInfo.FileFormatVersion.Patch, static_cast<uint32>(0));
 
 	return true;
 }
@@ -158,16 +158,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FFormatVersion_Xml_ReadFormatVersion::RunTest(const FString& Parameters)
 {
 	FSGDynamicTextAssetXmlSerializer serializer;
-	FSGDynamicTextAssetFileMetadata metadata;
+	FSGDynamicTextAssetFileInfo fileInfo;
 
 	const FString xml = SGFormatVersionTestUtils::BuildXmlWithVersion(TEXT("3.1.0"));
-	const bool bResult = serializer.ExtractMetadata(xml, metadata);
+	const bool bResult = serializer.ExtractFileInfo(xml, fileInfo);
 
-	TestTrue(TEXT("ExtractMetadata should succeed"), bResult);
-	TestTrue(TEXT("Metadata should be valid"), metadata.bIsValid);
-	TestEqual(TEXT("Major should be 3"), metadata.FileFormatVersion.Major, static_cast<uint32>(3));
-	TestEqual(TEXT("Minor should be 1"), metadata.FileFormatVersion.Minor, static_cast<uint32>(1));
-	TestEqual(TEXT("Patch should be 0"), metadata.FileFormatVersion.Patch, static_cast<uint32>(0));
+	TestTrue(TEXT("ExtractFileInfo should succeed"), bResult);
+	TestTrue(TEXT("File info should be valid"), fileInfo.bIsValid);
+	TestEqual(TEXT("Major should be 3"), fileInfo.FileFormatVersion.Major, static_cast<uint32>(3));
+	TestEqual(TEXT("Minor should be 1"), fileInfo.FileFormatVersion.Minor, static_cast<uint32>(1));
+	TestEqual(TEXT("Patch should be 0"), fileInfo.FileFormatVersion.Patch, static_cast<uint32>(0));
 
 	return true;
 }
@@ -180,16 +180,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FFormatVersion_Xml_MissingVersionDefaultsTo1_0_0::RunTest(const FString& Parameters)
 {
 	FSGDynamicTextAssetXmlSerializer serializer;
-	FSGDynamicTextAssetFileMetadata metadata;
+	FSGDynamicTextAssetFileInfo fileInfo;
 
 	const FString xml = SGFormatVersionTestUtils::BuildXmlWithoutVersion();
-	const bool bResult = serializer.ExtractMetadata(xml, metadata);
+	const bool bResult = serializer.ExtractFileInfo(xml, fileInfo);
 
-	TestTrue(TEXT("ExtractMetadata should succeed"), bResult);
-	TestTrue(TEXT("Metadata should be valid"), metadata.bIsValid);
-	TestEqual(TEXT("Default Major should be 1"), metadata.FileFormatVersion.Major, static_cast<uint32>(1));
-	TestEqual(TEXT("Default Minor should be 0"), metadata.FileFormatVersion.Minor, static_cast<uint32>(0));
-	TestEqual(TEXT("Default Patch should be 0"), metadata.FileFormatVersion.Patch, static_cast<uint32>(0));
+	TestTrue(TEXT("ExtractFileInfo should succeed"), bResult);
+	TestTrue(TEXT("File info should be valid"), fileInfo.bIsValid);
+	TestEqual(TEXT("Default Major should be 1"), fileInfo.FileFormatVersion.Major, static_cast<uint32>(1));
+	TestEqual(TEXT("Default Minor should be 0"), fileInfo.FileFormatVersion.Minor, static_cast<uint32>(0));
+	TestEqual(TEXT("Default Patch should be 0"), fileInfo.FileFormatVersion.Patch, static_cast<uint32>(0));
 
 	return true;
 }
@@ -202,16 +202,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FFormatVersion_Yaml_ReadFormatVersion::RunTest(const FString& Parameters)
 {
 	FSGDynamicTextAssetYamlSerializer serializer;
-	FSGDynamicTextAssetFileMetadata metadata;
+	FSGDynamicTextAssetFileInfo fileInfo;
 
 	const FString yaml = SGFormatVersionTestUtils::BuildYamlWithVersion(TEXT("1.5.2"));
-	const bool bResult = serializer.ExtractMetadata(yaml, metadata);
+	const bool bResult = serializer.ExtractFileInfo(yaml, fileInfo);
 
-	TestTrue(TEXT("ExtractMetadata should succeed"), bResult);
-	TestTrue(TEXT("Metadata should be valid"), metadata.bIsValid);
-	TestEqual(TEXT("Major should be 1"), metadata.FileFormatVersion.Major, static_cast<uint32>(1));
-	TestEqual(TEXT("Minor should be 5"), metadata.FileFormatVersion.Minor, static_cast<uint32>(5));
-	TestEqual(TEXT("Patch should be 2"), metadata.FileFormatVersion.Patch, static_cast<uint32>(2));
+	TestTrue(TEXT("ExtractFileInfo should succeed"), bResult);
+	TestTrue(TEXT("File info should be valid"), fileInfo.bIsValid);
+	TestEqual(TEXT("Major should be 1"), fileInfo.FileFormatVersion.Major, static_cast<uint32>(1));
+	TestEqual(TEXT("Minor should be 5"), fileInfo.FileFormatVersion.Minor, static_cast<uint32>(5));
+	TestEqual(TEXT("Patch should be 2"), fileInfo.FileFormatVersion.Patch, static_cast<uint32>(2));
 
 	return true;
 }
@@ -224,16 +224,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FFormatVersion_Yaml_MissingVersionDefaultsTo1_0_0::RunTest(const FString& Parameters)
 {
 	FSGDynamicTextAssetYamlSerializer serializer;
-	FSGDynamicTextAssetFileMetadata metadata;
+	FSGDynamicTextAssetFileInfo fileInfo;
 
 	const FString yaml = SGFormatVersionTestUtils::BuildYamlWithoutVersion();
-	const bool bResult = serializer.ExtractMetadata(yaml, metadata);
+	const bool bResult = serializer.ExtractFileInfo(yaml, fileInfo);
 
-	TestTrue(TEXT("ExtractMetadata should succeed"), bResult);
-	TestTrue(TEXT("Metadata should be valid"), metadata.bIsValid);
-	TestEqual(TEXT("Default Major should be 1"), metadata.FileFormatVersion.Major, static_cast<uint32>(1));
-	TestEqual(TEXT("Default Minor should be 0"), metadata.FileFormatVersion.Minor, static_cast<uint32>(0));
-	TestEqual(TEXT("Default Patch should be 0"), metadata.FileFormatVersion.Patch, static_cast<uint32>(0));
+	TestTrue(TEXT("ExtractFileInfo should succeed"), bResult);
+	TestTrue(TEXT("File info should be valid"), fileInfo.bIsValid);
+	TestEqual(TEXT("Default Major should be 1"), fileInfo.FileFormatVersion.Major, static_cast<uint32>(1));
+	TestEqual(TEXT("Default Minor should be 0"), fileInfo.FileFormatVersion.Minor, static_cast<uint32>(0));
+	TestEqual(TEXT("Default Patch should be 0"), fileInfo.FileFormatVersion.Patch, static_cast<uint32>(0));
 
 	return true;
 }
@@ -427,12 +427,12 @@ bool FFormatVersion_Commandlet_MigrateSingleFile_UpdatesVersion::RunTest(const F
 	FSGDynamicTextAssetFileManager::ReadRawFileContents(tempFile, updatedContent);
 
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetFileMetadata metadata;
-	serializer.ExtractMetadata(updatedContent, metadata);
+	FSGDynamicTextAssetFileInfo fileInfo;
+	serializer.ExtractFileInfo(updatedContent, fileInfo);
 
 	const FSGDynamicTextAssetVersion expectedVersion = serializer.GetFileFormatVersion();
 	TestEqual(TEXT("File format version should match serializer's current version"),
-		metadata.FileFormatVersion.ToString(), expectedVersion.ToString());
+		fileInfo.FileFormatVersion.ToString(), expectedVersion.ToString());
 
 	// Cleanup
 	SGFormatVersionTestUtils::CleanupTestTempDir();

@@ -41,7 +41,7 @@ This is **not** a UInterface. It uses standard C++ polymorphism with `TSharedPtr
 | `SerializeProvider()` | Provider → string |
 | `DeserializeProvider()` | String → provider (with migration flag) |
 | `ValidateStructure()` | Structural validation without full deserialization |
-| `ExtractMetadata()` | Lightweight header parsing for Id, ClassName, Version, TypeId |
+| `ExtractFileInfo()` | Lightweight header parsing for Id, ClassName, Version, TypeId |
 | `UpdateFieldsInPlace()` | Patch metadata fields without full round-trip |
 | `GetDefaultFileContent()` | Generate initial file content for new assets |
 
@@ -118,9 +118,7 @@ public:
     virtual bool SerializeProvider(const ISGDynamicTextAssetProvider* Provider, FString& OutString) const override;
     virtual bool DeserializeProvider(const FString& InString, ISGDynamicTextAssetProvider* OutProvider, bool& bOutMigrated) const override;
     virtual bool ValidateStructure(const FString& InString, FString& OutErrorMessage) const override;
-    virtual bool ExtractMetadata(const FString& InString, FSGDynamicTextAssetId& OutId,
-        FString& OutClassName, FString& OutUserFacingId, FString& OutVersion,
-        FSGDynamicTextAssetTypeId& OutAssetTypeId) const override;
+    virtual bool ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const override;
     virtual bool UpdateFieldsInPlace(FString& InOutContents, const TMap<FString, FString>& FieldUpdates) const override;
     virtual FString GetDefaultFileContent(const UClass* DynamicTextAssetClass,
         const FSGDynamicTextAssetId& Id, const FString& UserFacingId) const override;
@@ -149,18 +147,16 @@ bool FMyCustomSerializer::SerializeProvider(const ISGDynamicTextAssetProvider* P
 }
 ```
 
-### Step 3: Implement ExtractMetadata
+### Step 3: Implement ExtractFileInfo
 
 This must be lightweight because it is called frequently for file browsing and reference scanning without fully deserializing:
 
 ```cpp
-bool FMyCustomSerializer::ExtractMetadata(const FString& InString,
-    FSGDynamicTextAssetId& OutId, FString& OutClassName,
-    FString& OutUserFacingId, FString& OutVersion,
-    FSGDynamicTextAssetTypeId& OutAssetTypeId) const
+bool FMyCustomSerializer::ExtractFileInfo(const FString& InString,
+    FSGDynamicTextAssetFileInfo& OutFileInfo) const
 {
-    // Parse only the metadata/header section of your format
-    // Populate: OutId, OutClassName, OutUserFacingId, OutVersion, OutAssetTypeId
+    // Parse only the file information/header section of your format
+    // Populate: OutFileInfo.Id, OutFileInfo.ClassName, OutFileInfo.UserFacingId, OutFileInfo.Version, OutFileInfo.AssetTypeId
     return true;
 }
 ```
@@ -189,12 +185,12 @@ void FMyModule::ShutdownModule()
 3. Checks for TypeId collision (fatal error if duplicate)
 4. Stores in both `REGISTERED_SERIALIZERS` (by extension) and `REGISTERED_SERIALIZERS_BY_ID` (by TypeId)
 
-## File Metadata
+## File Information
 
-`FSGDynamicTextAssetFileMetadata` is the struct returned by lightweight header parsing:
+`FSGDynamicTextAssetFileInfo` is the struct returned by lightweight header parsing:
 
 ```cpp
-struct FSGDynamicTextAssetFileMetadata
+struct FSGDynamicTextAssetFileInfo
 {
     bool bIsValid = false;
     FSGDynamicTextAssetId Id;
@@ -205,7 +201,7 @@ struct FSGDynamicTextAssetFileMetadata
 };
 ```
 
-Used by the browser, file manager, and reference scanner for fast file inspection without full deserialization. Populated via `FSGDynamicTextAssetFileManager::ExtractMetadataFromFile()`.
+Used by the browser, file manager, and reference scanner for fast file inspection without full deserialization. Populated via `FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile()`.
 
 ## File Format Conversion
 

@@ -4,7 +4,7 @@
 
 #include "Serialization/SGDynamicTextAssetXmlSerializer.h"
 #include "Core/SGDynamicTextAssetTypeId.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Tests/SGDynamicTextAssetXmlUnitTest.h"
 
@@ -13,8 +13,8 @@ namespace SGXmlSerializerTestUtils
 {
 	/**
 	 * Builds a minimal valid XML string with all required structural blocks.
-	 * Uses KEY_ constants for metadata field names and hardcodes the XML structural
-	 * tags (DynamicTextAsset, metadata, data) which are stable XML format constants.
+	 * Uses KEY_ constants for file information field names and hardcodes the XML structural
+	 * tags (DynamicTextAsset, sgFileInformation, data) which are stable XML format constants.
 	 */
 	FString BuildValidXml(
 		const FString& TypeName = TEXT("USGDynamicTextAsset"),
@@ -87,7 +87,7 @@ bool FSGDynamicTextAssetXmlSerializer_ValidateStructure_MalformedFails::RunTest(
 }
 
 /**
- * Test: XML with metadata block but missing type element fails validation.
+ * Test: XML with file information block but missing type element fails validation.
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetXmlSerializer_ValidateStructure_MissingTypeFails,
@@ -96,7 +96,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FSGDynamicTextAssetXmlSerializer_ValidateStructure_MissingTypeFails::RunTest(const FString& Parameters)
 {
-	// Has metadata block and data block but no <type> inside metadata
+	// Has file information block and data block but no <type> inside it
 	const FString xml = FString::Printf(
 		TEXT("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<DynamicTextAsset>\n    <%s>\n        <%s>A1B2C3D4-E5F67890-ABCDEF12-34567890</%s>\n    </%s>\n    <data/>\n</DynamicTextAsset>"),
 		*ISGDynamicTextAssetSerializer::KEY_FILE_INFORMATION,
@@ -115,7 +115,7 @@ bool FSGDynamicTextAssetXmlSerializer_ValidateStructure_MissingTypeFails::RunTes
 }
 
 /**
- * Test: XML with metadata but no data block fails validation.
+ * Test: XML with file information block but no data block fails validation.
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetXmlSerializer_ValidateStructure_MissingDataFails,
@@ -124,7 +124,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FSGDynamicTextAssetXmlSerializer_ValidateStructure_MissingDataFails::RunTest(const FString& Parameters)
 {
-	// Has metadata block with type but no <data> block
+	// Has file information block with type but no <data> block
 	const FString xml = FString::Printf(
 		TEXT("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<DynamicTextAsset>\n    <%s>\n        <%s>USGDynamicTextAsset</%s>\n    </%s>\n</DynamicTextAsset>"),
 		*ISGDynamicTextAssetSerializer::KEY_FILE_INFORMATION,
@@ -207,7 +207,7 @@ bool FSGDynamicTextAssetXmlSerializer_DeserializeProvider_NullFails::RunTest(con
 
 /**
  * Test: SerializeProvider produces output that passes ValidateStructure and contains
- * all four metadata fields with the correct values.
+ * all four file information fields with the correct values.
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetXmlSerializer_SerializeProvider_ProducesValidXml,
@@ -240,14 +240,14 @@ bool FSGDynamicTextAssetXmlSerializer_SerializeProvider_ProducesValidXml::RunTes
 }
 
 /**
- * Test: ExtractMetadata returns all four fields correctly after a round-trip through SerializeProvider.
+ * Test: ExtractFileInfo returns all four fields correctly after a round-trip through SerializeProvider.
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSGDynamicTextAssetXmlSerializer_ExtractMetadata_ReturnsAllFields,
-	"SGDynamicTextAssets.Runtime.Serialization.XmlSerializer.ExtractMetadataReturnsAllFields",
+	FSGDynamicTextAssetXmlSerializer_ExtractFileInfo_ReturnsAllFields,
+	"SGDynamicTextAssets.Runtime.Serialization.XmlSerializer.ExtractFileInfoReturnsAllFields",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSGDynamicTextAssetXmlSerializer_ExtractMetadata_ReturnsAllFields::RunTest(const FString& Parameters)
+bool FSGDynamicTextAssetXmlSerializer_ExtractFileInfo_ReturnsAllFields::RunTest(const FString& Parameters)
 {
 	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	USGDynamicTextAssetXmlUnitTest* dummy = NewObject<USGDynamicTextAssetXmlUnitTest>();
@@ -262,10 +262,10 @@ bool FSGDynamicTextAssetXmlSerializer_ExtractMetadata_ReturnsAllFields::RunTest(
 	FSGDynamicTextAssetXmlSerializer serializer;
 	serializer.SerializeProvider(dummy, outXml);
 
-	FSGDynamicTextAssetFileMetadata outMeta;
-	const bool bExtracted = serializer.ExtractMetadata(outXml, outMeta);
+	FSGDynamicTextAssetFileInfo outMeta;
+	const bool bExtracted = serializer.ExtractFileInfo(outXml, outMeta);
 
-	TestTrue(TEXT("ExtractMetadata should succeed"), bExtracted);
+	TestTrue(TEXT("ExtractFileInfo should succeed"), bExtracted);
 	// Hidden test class has no TypeId - serializer falls back to class name
 	TestFalse(TEXT("TypeId should be invalid for unregistered test class"), outMeta.AssetTypeId.IsValid());
 	TestEqual(TEXT("Extracted class name should match"), outMeta.ClassName, TEXT("SGDynamicTextAssetXmlUnitTest"));
@@ -278,7 +278,7 @@ bool FSGDynamicTextAssetXmlSerializer_ExtractMetadata_ReturnsAllFields::RunTest(
 
 /**
  * Test: Serialize then Deserialize round-trip preserves basic property values
- * (float, FString, int32) and all metadata fields.
+ * (float, FString, int32) and all file information fields.
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetXmlSerializer_Roundtrip_PreservesBasicProperties,
@@ -587,25 +587,25 @@ bool FSGDynamicTextAssetXmlSerializer_Roundtrip_PreservesFSGDynamicTextAssetRef:
 }
 
 /**
- * Test: ExtractMetadata correctly parses a GUID string in the type field
+ * Test: ExtractFileInfo correctly parses a GUID string in the type field
  * and returns a valid FSGDynamicTextAssetTypeId.
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSGDynamicTextAssetXmlSerializer_ExtractMetadata_WithGuid_ExtractsAssetTypeId,
-	"SGDynamicTextAssets.Runtime.Serialization.XmlSerializer.ExtractMetadata.WithGuid.ExtractsAssetTypeId",
+	FSGDynamicTextAssetXmlSerializer_ExtractFileInfo_WithGuid_ExtractsAssetTypeId,
+	"SGDynamicTextAssets.Runtime.Serialization.XmlSerializer.ExtractFileInfo.WithGuid.ExtractsAssetTypeId",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSGDynamicTextAssetXmlSerializer_ExtractMetadata_WithGuid_ExtractsAssetTypeId::RunTest(const FString& Parameters)
+bool FSGDynamicTextAssetXmlSerializer_ExtractFileInfo_WithGuid_ExtractsAssetTypeId::RunTest(const FString& Parameters)
 {
 	// Use a valid GUID string as the type field value (new format)
 	const FString guidString = TEXT("550E8400-E29B-41D4-A716-446655440000");
 	const FString xml = SGXmlSerializerTestUtils::BuildValidXml(guidString);
 
 	FSGDynamicTextAssetXmlSerializer serializer;
-	FSGDynamicTextAssetFileMetadata outMeta;
+	FSGDynamicTextAssetFileInfo outMeta;
 
-	bool bExtracted = serializer.ExtractMetadata(xml, outMeta);
-	TestTrue(TEXT("ExtractMetadata should succeed with GUID type field"), bExtracted);
+	bool bExtracted = serializer.ExtractFileInfo(xml, outMeta);
+	TestTrue(TEXT("ExtractFileInfo should succeed with GUID type field"), bExtracted);
 	TestTrue(TEXT("TypeId should be valid when type field contains a GUID"), outMeta.AssetTypeId.IsValid());
 	TestEqual(TEXT("Extracted TypeId should match the input GUID"), outMeta.AssetTypeId.ToString(), guidString);
 
@@ -616,24 +616,24 @@ bool FSGDynamicTextAssetXmlSerializer_ExtractMetadata_WithGuid_ExtractsAssetType
 }
 
 /**
- * Test: ExtractMetadata correctly treats a non-GUID string in the type field
+ * Test: ExtractFileInfo correctly treats a non-GUID string in the type field
  * as a legacy class name and returns an invalid FSGDynamicTextAssetTypeId.
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSGDynamicTextAssetXmlSerializer_ExtractMetadata_LegacyClassName_NoTypeId,
-	"SGDynamicTextAssets.Runtime.Serialization.XmlSerializer.ExtractMetadata.LegacyClassName.NoTypeId",
+	FSGDynamicTextAssetXmlSerializer_ExtractFileInfo_LegacyClassName_NoTypeId,
+	"SGDynamicTextAssets.Runtime.Serialization.XmlSerializer.ExtractFileInfo.LegacyClassName.NoTypeId",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSGDynamicTextAssetXmlSerializer_ExtractMetadata_LegacyClassName_NoTypeId::RunTest(const FString& Parameters)
+bool FSGDynamicTextAssetXmlSerializer_ExtractFileInfo_LegacyClassName_NoTypeId::RunTest(const FString& Parameters)
 {
 	// Use a class name as the type field value (legacy format)
 	const FString xml = SGXmlSerializerTestUtils::BuildValidXml(TEXT("USGDynamicTextAsset"));
 
 	FSGDynamicTextAssetXmlSerializer serializer;
-	FSGDynamicTextAssetFileMetadata outMeta;
+	FSGDynamicTextAssetFileInfo outMeta;
 
-	bool bExtracted = serializer.ExtractMetadata(xml, outMeta);
-	TestTrue(TEXT("ExtractMetadata should succeed with legacy class name"), bExtracted);
+	bool bExtracted = serializer.ExtractFileInfo(xml, outMeta);
+	TestTrue(TEXT("ExtractFileInfo should succeed with legacy class name"), bExtracted);
 	TestFalse(TEXT("TypeId should be invalid for legacy class name format"), outMeta.AssetTypeId.IsValid());
 	TestEqual(TEXT("Class name should match the type field value"), outMeta.ClassName, TEXT("USGDynamicTextAsset"));
 
@@ -659,22 +659,22 @@ bool FSGDynamicTextAssetXmlSerializer_LegacyMetadataKey_ValidateStructurePasses:
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSGDynamicTextAssetXmlSerializer_LegacyMetadataKey_ExtractMetadataSucceeds,
-	"SGDynamicTextAssets.Runtime.Serialization.XmlSerializer.LegacyMetadataKey.ExtractMetadataSucceeds",
+	FSGDynamicTextAssetXmlSerializer_LegacyMetadataKey_ExtractFileInfoSucceeds,
+	"SGDynamicTextAssets.Runtime.Serialization.XmlSerializer.LegacyMetadataKey.ExtractFileInfoSucceeds",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSGDynamicTextAssetXmlSerializer_LegacyMetadataKey_ExtractMetadataSucceeds::RunTest(const FString& Parameters)
+bool FSGDynamicTextAssetXmlSerializer_LegacyMetadataKey_ExtractFileInfoSucceeds::RunTest(const FString& Parameters)
 {
 	FSGDynamicTextAssetXmlSerializer serializer;
-	FSGDynamicTextAssetFileMetadata metadata;
+	FSGDynamicTextAssetFileInfo fileInfo;
 
-	const bool bResult = serializer.ExtractMetadata(
-		SGXmlSerializerTestUtils::BuildLegacyXml(), metadata);
+	const bool bResult = serializer.ExtractFileInfo(
+		SGXmlSerializerTestUtils::BuildLegacyXml(), fileInfo);
 
-	TestTrue(TEXT("ExtractMetadata should succeed with legacy tag"), bResult);
-	TestTrue(TEXT("Metadata should be valid"), metadata.bIsValid);
+	TestTrue(TEXT("ExtractFileInfo should succeed with legacy tag"), bResult);
+	TestTrue(TEXT("File info should be valid"), fileInfo.bIsValid);
 	TestEqual(TEXT("ID should be extracted correctly"),
-		metadata.Id.ToString(), TEXT("A1B2C3D4-E5F6-7890-ABCD-EF1234567890"));
+		fileInfo.Id.ToString(), TEXT("A1B2C3D4-E5F6-7890-ABCD-EF1234567890"));
 
 	return true;
 }

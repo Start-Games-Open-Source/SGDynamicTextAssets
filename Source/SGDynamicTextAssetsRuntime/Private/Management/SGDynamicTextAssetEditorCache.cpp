@@ -174,12 +174,12 @@ TScriptInterface<ISGDynamicTextAssetProvider> FSGDynamicTextAssetEditorCache::In
 		return emptyProvider;
 	}
 
-	// Step 4: Extract metadata to resolve the class
-	FSGDynamicTextAssetFileMetadata cacheMeta;
-	if (!serializer->ExtractMetadata(textPayload, cacheMeta))
+	// Step 4: Extract file information to resolve the class
+	FSGDynamicTextAssetFileInfo cacheMeta;
+	if (!serializer->ExtractFileInfo(textPayload, cacheMeta))
 	{
 		UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
-			TEXT("FSGDynamicTextAssetEditorCache: Failed to extract metadata from FilePath(%s)"), *filePath);
+			TEXT("FSGDynamicTextAssetEditorCache: Failed to extract file info from FilePath(%s)"), *filePath);
 		return emptyProvider;
 	}
 

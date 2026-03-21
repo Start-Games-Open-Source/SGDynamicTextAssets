@@ -15,7 +15,7 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Misc/MessageDialog.h"
 #include "Modules/ModuleManager.h"
@@ -408,23 +408,23 @@ bool FSGDynamicTextAssetEditorToolkit::LoadFromFile()
         return false;
     }
 
-    // Extract metadata
-    FSGDynamicTextAssetFileMetadata fileMetadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(FilePath);
-    if (!fileMetadata.bIsValid)
+    // Extract file information
+    FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(FilePath);
+    if (!fileInfo.bIsValid)
     {
-        UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("Failed to extract metadata for: %s"), *FilePath);
+        UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("Failed to extract file info for: %s"), *FilePath);
         return false;
     }
 
     // Track the file's format version for minor auto-upgrade detection on save
-    LoadedFileFormatVersion = fileMetadata.FileFormatVersion;
+    LoadedFileFormatVersion = fileInfo.FileFormatVersion;
 
     // Determine class
-    UClass* classToUse = FindFirstObject<UClass>(*fileMetadata.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
+    UClass* classToUse = FindFirstObject<UClass>(*fileInfo.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
     if (classToUse && !classToUse->ImplementsInterface(USGDynamicTextAssetProvider::StaticClass()))
     {
         UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
-            TEXT("Resolved class '%s' does not implement ISGDynamicTextAssetProvider, ignoring"), *fileMetadata.ClassName);
+            TEXT("Resolved class '%s' does not implement ISGDynamicTextAssetProvider, ignoring"), *fileInfo.ClassName);
         classToUse = nullptr;
     }
 
@@ -473,12 +473,12 @@ bool FSGDynamicTextAssetEditorToolkit::LoadFromFile()
         }
     }
 
-    // Populate UserFacingId from file metadata if not already set
+    // Populate UserFacingId from file info if not already set
     if (ISGDynamicTextAssetProvider* provider = Cast<ISGDynamicTextAssetProvider>(dataObject))
     {
-        if (provider->GetUserFacingId().IsEmpty() && !fileMetadata.UserFacingId.IsEmpty())
+        if (provider->GetUserFacingId().IsEmpty() && !fileInfo.UserFacingId.IsEmpty())
         {
-            provider->SetUserFacingId(fileMetadata.UserFacingId);
+            provider->SetUserFacingId(fileInfo.UserFacingId);
         }
 
         UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Loaded dynamic text asset from: %s (UserFacingId: %s)"),
@@ -769,31 +769,31 @@ void FSGDynamicTextAssetEditorToolkit::OpenEditorForFile(const FString& InFilePa
         return;
     }
 
-    FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(InFilePath);
-    if (!metadata.bIsValid)
+    FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(InFilePath);
+    if (!fileInfo.bIsValid)
     {
-        UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("OpenEditorForFile: failed to extract metadata %s"), *InFilePath);
+        UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("OpenEditorForFile: failed to extract file info %s"), *InFilePath);
         return;
     }
 
     // Resolve class via Asset Type ID (O(1) map lookup), with fallback to class name for legacy files
     UClass* dataObjectClass = nullptr;
-    FSGDynamicTextAssetTypeId resolvedTypeId = metadata.AssetTypeId;
+    FSGDynamicTextAssetTypeId resolvedTypeId = fileInfo.AssetTypeId;
     if (USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
     {
-        if (metadata.AssetTypeId.IsValid())
+        if (fileInfo.AssetTypeId.IsValid())
         {
-            dataObjectClass = registry->ResolveClassForTypeId(metadata.AssetTypeId);
+            dataObjectClass = registry->ResolveClassForTypeId(fileInfo.AssetTypeId);
         }
 
         // Fallback: resolve by class name for legacy files without a valid Asset Type ID
-        if (!dataObjectClass && !metadata.ClassName.IsEmpty())
+        if (!dataObjectClass && !fileInfo.ClassName.IsEmpty())
         {
             TArray<UClass*> allClasses;
             registry->GetAllInstantiableClasses(allClasses);
             for (UClass* registeredClass : allClasses)
             {
-                if (registeredClass && registeredClass->GetName() == metadata.ClassName)
+                if (registeredClass && registeredClass->GetName() == fileInfo.ClassName)
                 {
                     dataObjectClass = registeredClass;
                     resolvedTypeId = registry->GetTypeIdForClass(registeredClass);
@@ -807,7 +807,7 @@ void FSGDynamicTextAssetEditorToolkit::OpenEditorForFile(const FString& InFilePa
     {
         UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
             TEXT("OpenEditorForFile: failed to resolve class for AssetTypeId '%s' (ClassName '%s') in %s"),
-            *metadata.AssetTypeId.ToString(), *metadata.ClassName, *InFilePath);
+            *fileInfo.AssetTypeId.ToString(), *fileInfo.ClassName, *InFilePath);
         return;
     }
 
@@ -833,13 +833,13 @@ void FSGDynamicTextAssetEditorToolkit::NotifyFileRenamed(const FString& OldFileP
     toolkit->FilePath = NewFilePath;
     OPEN_EDITORS.Add(NewFilePath, toolkit);
 
-    // Reload UserFacingId from the renamed file's metadata
+    // Reload UserFacingId from the renamed file's file info
     if (ISGDynamicTextAssetProvider* provider = Cast<ISGDynamicTextAssetProvider>(toolkit->EditedDynamicTextAsset))
     {
-        FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(NewFilePath);
-        if (metadata.bIsValid && !metadata.UserFacingId.IsEmpty())
+        FSGDynamicTextAssetFileInfo renamedFileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(NewFilePath);
+        if (renamedFileInfo.bIsValid && !renamedFileInfo.UserFacingId.IsEmpty())
         {
-            provider->SetUserFacingId(metadata.UserFacingId);
+            provider->SetUserFacingId(renamedFileInfo.UserFacingId);
         }
     }
 

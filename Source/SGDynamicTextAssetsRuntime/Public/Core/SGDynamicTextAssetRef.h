@@ -150,7 +150,7 @@ public:
     const FSGDynamicTextAssetId& GetId() const;
 
     /**
-     * Resolves and returns the user-facing ID by looking up the dynamic text asset's file metadata.
+     * Resolves and returns the user-facing ID by looking up the dynamic text asset's file information.
      * Works in any context  - editor, runtime, without a world or game instance.
      * Returns an empty string if the ID is invalid or no matching file is found.
      */

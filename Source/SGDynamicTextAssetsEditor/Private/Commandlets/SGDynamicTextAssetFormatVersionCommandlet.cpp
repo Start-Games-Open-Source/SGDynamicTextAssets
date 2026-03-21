@@ -4,7 +4,7 @@
 
 #include "SGDynamicTextAssetEditorLogs.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Serialization/SGDynamicTextAssetSerializer.h"
 
 USGDynamicTextAssetFormatVersionCommandlet::USGDynamicTextAssetFormatVersionCommandlet()
@@ -138,9 +138,9 @@ void USGDynamicTextAssetFormatVersionCommandlet::ValidateAllFiles(TArray<FSGForm
 
 	for (const FString& filePath : allFiles)
 	{
-		// Extract metadata to get the file's format version
-		FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-		if (!metadata.bIsValid)
+		// Extract file info to get the file's format version
+		FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+		if (!fileInfo.bIsValid)
 		{
 			UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
 				TEXT("  Skipping invalid file: %s"), *filePath);
@@ -157,7 +157,7 @@ void USGDynamicTextAssetFormatVersionCommandlet::ValidateAllFiles(TArray<FSGForm
 		}
 
 		const FSGDynamicTextAssetVersion serializerVersion = serializer->GetFileFormatVersion();
-		const FSGDynamicTextAssetVersion fileVersion = metadata.FileFormatVersion;
+		const FSGDynamicTextAssetVersion fileVersion = fileInfo.FileFormatVersion;
 
 		// Skip files that are already at the current version
 		if (fileVersion == serializerVersion)
@@ -232,16 +232,16 @@ bool USGDynamicTextAssetFormatVersionCommandlet::MigrateSingleFile(const FString
 		return false;
 	}
 
-	// Extract metadata to get current file version
-	FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(FilePath);
-	if (!metadata.bIsValid)
+	// Extract file info to get current file version
+	FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(FilePath);
+	if (!fileInfo.bIsValid)
 	{
-		OutError = FString::Printf(TEXT("Failed to extract metadata from: %s"), *FilePath);
+		OutError = FString::Printf(TEXT("Failed to extract file information from: %s"), *FilePath);
 		return false;
 	}
 
 	const FSGDynamicTextAssetVersion serializerVersion = serializer->GetFileFormatVersion();
-	const FSGDynamicTextAssetVersion fileVersion = metadata.FileFormatVersion;
+	const FSGDynamicTextAssetVersion fileVersion = fileInfo.FileFormatVersion;
 
 	// No migration needed if already at current version
 	if (fileVersion == serializerVersion)

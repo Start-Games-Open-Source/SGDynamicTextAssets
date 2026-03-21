@@ -4,11 +4,11 @@
 
 #include "Serialization/SGDynamicTextAssetJsonSerializer.h"
 #include "Core/SGDynamicTextAssetTypeId.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Tests/SGDynamicTextAssetUnitTest.h"
 
-// Helper: Builds a valid JSON string with all required metadata fields.
+// Helper: Builds a valid JSON string with all required file information fields.
 namespace SGJsonSerializerTestUtils
 {
 	FString BuildValidJson(
@@ -79,7 +79,7 @@ bool FSGDynamicTextAssetJsonSerializer_ValidateJsonStructure_ValidPasses::RunTes
 }
 
 /**
- * Test: Missing type field inside metadata fails validation
+ * Test: Missing type field inside file information block fails validation
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetJsonSerializer_ValidateJsonStructure_MissingTypeFails,
@@ -88,7 +88,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FSGDynamicTextAssetJsonSerializer_ValidateJsonStructure_MissingTypeFails::RunTest(const FString& Parameters)
 {
-	// Has metadata block but no "type" field inside it
+	// Has file information block but no "type" field inside it
 	const FString json = FString::Printf(TEXT("{ \"%s\": { \"%s\": \"A1B2C3D4-E5F67890-ABCDEF12-34567890\" }, \"%s\": {} }"),
 		*ISGDynamicTextAssetSerializer::KEY_FILE_INFORMATION,
 		*ISGDynamicTextAssetSerializer::KEY_ID,
@@ -114,7 +114,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FSGDynamicTextAssetJsonSerializer_ValidateJsonStructure_MissingDataFails::RunTest(const FString& Parameters)
 {
-	// Has metadata but no data block at root
+	// Has file information block but no data block at root
 	const FString json = FString::Printf(TEXT("{ \"%s\": { \"%s\": \"USGDynamicTextAsset\", \"%s\": \"A1B2C3D4-E5F67890-ABCDEF12-34567890\" } }"),
 		*ISGDynamicTextAssetSerializer::KEY_FILE_INFORMATION,
 		*ISGDynamicTextAssetSerializer::KEY_TYPE,
@@ -238,7 +238,7 @@ bool FSGDynamicTextAssetJsonSerializer_DeserializeProvider_EmptyStringFails::Run
 }
 
 /**
- * Test: SerializeProvider produces valid JSON with correct metadata for a concrete subclass
+ * Test: SerializeProvider produces valid JSON with correct file information for a concrete subclass
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetJsonSerializer_SerializeProvider_ProducesValidJson,
@@ -270,9 +270,9 @@ bool FSGDynamicTextAssetJsonSerializer_SerializeProvider_ProducesValidJson::RunT
 	TestTrue(TEXT("Output should be valid JSON structure"),
 		serializer.ValidateStructure(outJson, errorMessage));
 
-	// Verify metadata extraction from serialized output
-	FSGDynamicTextAssetFileMetadata extractedMeta;
-	serializer.ExtractMetadata(outJson, extractedMeta);
+	// Verify file info extraction from serialized output
+	FSGDynamicTextAssetFileInfo extractedMeta;
+	serializer.ExtractFileInfo(outJson, extractedMeta);
 
 	// Hidden test class has no TypeId - serializer falls back to class name
 	TestFalse(TEXT("TypeId should be invalid for unregistered test class"), extractedMeta.AssetTypeId.IsValid());
@@ -331,14 +331,14 @@ bool FSGDynamicTextAssetJsonSerializer_Roundtrip_PreservesProperties::RunTest(co
 }
 
 /**
- * Test: DeserializeProvider correctly populates ID and version from JSON
+ * Test: DeserializeProvider correctly populates ID and version from JSON file information
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSGDynamicTextAssetJsonSerializer_DeserializeProvider_PopulatesMetadata,
-	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.DeserializePopulatesMetadata",
+	FSGDynamicTextAssetJsonSerializer_DeserializeProvider_PopulatesFileInfo,
+	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.DeserializePopulatesFileInfo",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSGDynamicTextAssetJsonSerializer_DeserializeProvider_PopulatesMetadata::RunTest(const FString& Parameters)
+bool FSGDynamicTextAssetJsonSerializer_DeserializeProvider_PopulatesFileInfo::RunTest(const FString& Parameters)
 {
 	AddExpectedMessage(TEXT("does not match OutProvider"), EAutomationExpectedMessageFlags::Contains);
 	AddExpectedMessage(TEXT("Loading with best-effort."), EAutomationExpectedMessageFlags::Contains);
@@ -364,7 +364,7 @@ bool FSGDynamicTextAssetJsonSerializer_DeserializeProvider_PopulatesMetadata::Ru
 }
 
 /**
- * Test: SerializeProvider includes userfacingid in metadata block of output JSON
+ * Test: SerializeProvider includes userfacingid in file information block of output JSON
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetJsonSerializer_SerializeProvider_IncludesUserFacingId,
@@ -398,7 +398,7 @@ bool FSGDynamicTextAssetJsonSerializer_SerializeProvider_IncludesUserFacingId::R
 }
 
 /**
- * Test: DeserializeProvider restores UserFacingId from metadata block
+ * Test: DeserializeProvider restores UserFacingId from file information block
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetJsonSerializer_DeserializeProvider_RestoresUserFacingId,
@@ -407,7 +407,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FSGDynamicTextAssetJsonSerializer_DeserializeProvider_RestoresUserFacingId::RunTest(const FString& Parameters)
 {
-	// Build JSON with metadata wrapper including userfacingid
+	// Build JSON with file information wrapper including userfacingid
 	const FString json = FString::Printf(
 		TEXT("{ \"%s\": { \"%s\": \"SGDynamicTextAssetUnitTest\", \"%s\": \"AABBCCDD-11223344-AABBCCDD-11223344\", \"%s\": \"1.0.0\", \"%s\": \"ice_staff\" }, \"%s\": { \"TestDamage\": 30.0 } }"),
 		*ISGDynamicTextAssetSerializer::KEY_FILE_INFORMATION,
@@ -462,7 +462,7 @@ bool FSGDynamicTextAssetJsonSerializer_Roundtrip_PreservesUserFacingId::RunTest(
 }
 
 /**
- * Test: JSON without userfacingid in metadata deserializes gracefully with empty UserFacingId
+ * Test: JSON without userfacingid in file information deserializes gracefully with empty UserFacingId
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetJsonSerializer_DeserializeProvider_MissingUserFacingId,
@@ -471,7 +471,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FSGDynamicTextAssetJsonSerializer_DeserializeProvider_MissingUserFacingId::RunTest(const FString& Parameters)
 {
-	// Build JSON with metadata wrapper but WITHOUT userfacingid key
+	// Build JSON with file information wrapper but WITHOUT userfacingid key
 	const FString json = FString::Printf(
 		TEXT("{ \"%s\": { \"%s\": \"SGDynamicTextAssetUnitTest\", \"%s\": \"AABBCCDD-11223344-AABBCCDD-11223344\", \"%s\": \"1.0.0\" }, \"%s\": { \"TestDamage\": 10.0 } }"),
 		*ISGDynamicTextAssetSerializer::KEY_FILE_INFORMATION,
@@ -485,20 +485,20 @@ bool FSGDynamicTextAssetJsonSerializer_DeserializeProvider_MissingUserFacingId::
 	bool bMigrated;
 	bool bDeserialized = serializer.DeserializeProvider(json, target, bMigrated);
 	TestTrue(TEXT("Deserialization should succeed"), bDeserialized);
-	TestTrue(TEXT("UserFacingId should be empty when missing from metadata"), target->GetUserFacingId().IsEmpty());
+	TestTrue(TEXT("UserFacingId should be empty when missing from file information"), target->GetUserFacingId().IsEmpty());
 
 	return true;
 }
 
 /**
- * Test: ExtractMetadata reads userfacingid from metadata block
+ * Test: ExtractFileInfo reads userfacingid from file information block
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSGDynamicTextAssetJsonSerializer_ExtractMetadata_ReadsUserFacingId,
-	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.UserFacingId.ExtractMetadata",
+	FSGDynamicTextAssetJsonSerializer_ExtractFileInfo_ReadsUserFacingId,
+	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.UserFacingId.ExtractFileInfo",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSGDynamicTextAssetJsonSerializer_ExtractMetadata_ReadsUserFacingId::RunTest(const FString& Parameters)
+bool FSGDynamicTextAssetJsonSerializer_ExtractFileInfo_ReadsUserFacingId::RunTest(const FString& Parameters)
 {
 	const FString json = FString::Printf(
 		TEXT("{ \"%s\": { \"%s\": \"SGDynamicTextAssetUnitTest\", \"%s\": \"AABBCCDD-11223344-AABBCCDD-11223344\", \"%s\": \"1.0.0\", \"%s\": \"holy_shield\" }, \"%s\": {} }"),
@@ -510,9 +510,9 @@ bool FSGDynamicTextAssetJsonSerializer_ExtractMetadata_ReadsUserFacingId::RunTes
 		*ISGDynamicTextAssetSerializer::KEY_DATA);
 
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetFileMetadata outMeta;
-	bool bExtracted = serializer.ExtractMetadata(json, outMeta);
-	TestTrue(TEXT("ExtractMetadata should succeed"), bExtracted);
+	FSGDynamicTextAssetFileInfo outMeta;
+	bool bExtracted = serializer.ExtractFileInfo(json, outMeta);
+	TestTrue(TEXT("ExtractFileInfo should succeed"), bExtracted);
 	TestEqual(TEXT("UserFacingId should be extracted"), outMeta.UserFacingId, TEXT("holy_shield"));
 	TestFalse(TEXT("TypeId should be invalid for legacy class name format"), outMeta.AssetTypeId.IsValid());
 
@@ -560,25 +560,25 @@ bool FSGDynamicTextAssetJsonSerializer_Roundtrip_PreservesFSGDynamicTextAssetRef
 }
 
 /**
- * Test: ExtractMetadata correctly parses a GUID string in the type field
+ * Test: ExtractFileInfo correctly parses a GUID string in the type field
  * and returns a valid FSGDynamicTextAssetTypeId.
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSGDynamicTextAssetJsonSerializer_ExtractMetadata_WithGuid_ExtractsAssetTypeId,
-	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.ExtractMetadata.WithGuid.ExtractsAssetTypeId",
+	FSGDynamicTextAssetJsonSerializer_ExtractFileInfo_WithGuid_ExtractsAssetTypeId,
+	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.ExtractFileInfo.WithGuid.ExtractsAssetTypeId",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSGDynamicTextAssetJsonSerializer_ExtractMetadata_WithGuid_ExtractsAssetTypeId::RunTest(const FString& Parameters)
+bool FSGDynamicTextAssetJsonSerializer_ExtractFileInfo_WithGuid_ExtractsAssetTypeId::RunTest(const FString& Parameters)
 {
 	// Use a valid GUID string as the type field value (new format)
 	const FString guidString = TEXT("550E8400-E29B-41D4-A716-446655440000");
 	const FString json = SGJsonSerializerTestUtils::BuildValidJson(guidString);
 
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetFileMetadata outMeta;
+	FSGDynamicTextAssetFileInfo outMeta;
 
-	bool bExtracted = serializer.ExtractMetadata(json, outMeta);
-	TestTrue(TEXT("ExtractMetadata should succeed with GUID type field"), bExtracted);
+	bool bExtracted = serializer.ExtractFileInfo(json, outMeta);
+	TestTrue(TEXT("ExtractFileInfo should succeed with GUID type field"), bExtracted);
 	TestTrue(TEXT("TypeId should be valid when type field contains a GUID"), outMeta.AssetTypeId.IsValid());
 	TestEqual(TEXT("Extracted TypeId should match the input GUID"), outMeta.AssetTypeId.ToString(), guidString);
 
@@ -589,24 +589,24 @@ bool FSGDynamicTextAssetJsonSerializer_ExtractMetadata_WithGuid_ExtractsAssetTyp
 }
 
 /**
- * Test: ExtractMetadata correctly treats a non-GUID string in the type field
+ * Test: ExtractFileInfo correctly treats a non-GUID string in the type field
  * as a legacy class name and returns an invalid FSGDynamicTextAssetTypeId.
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSGDynamicTextAssetJsonSerializer_ExtractMetadata_LegacyClassName_NoTypeId,
-	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.ExtractMetadata.LegacyClassName.NoTypeId",
+	FSGDynamicTextAssetJsonSerializer_ExtractFileInfo_LegacyClassName_NoTypeId,
+	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.ExtractFileInfo.LegacyClassName.NoTypeId",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSGDynamicTextAssetJsonSerializer_ExtractMetadata_LegacyClassName_NoTypeId::RunTest(const FString& Parameters)
+bool FSGDynamicTextAssetJsonSerializer_ExtractFileInfo_LegacyClassName_NoTypeId::RunTest(const FString& Parameters)
 {
 	// Use a class name as the type field value (legacy format)
 	const FString json = SGJsonSerializerTestUtils::BuildValidJson(TEXT("USGDynamicTextAsset"));
 
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetFileMetadata outMeta;
+	FSGDynamicTextAssetFileInfo outMeta;
 
-	bool bExtracted = serializer.ExtractMetadata(json, outMeta);
-	TestTrue(TEXT("ExtractMetadata should succeed with legacy class name"), bExtracted);
+	bool bExtracted = serializer.ExtractFileInfo(json, outMeta);
+	TestTrue(TEXT("ExtractFileInfo should succeed with legacy class name"), bExtracted);
 	TestFalse(TEXT("TypeId should be invalid for legacy class name format"), outMeta.AssetTypeId.IsValid());
 	TestEqual(TEXT("Class name should match the type field value"), outMeta.ClassName, TEXT("USGDynamicTextAsset"));
 
@@ -656,22 +656,22 @@ bool FSGDynamicTextAssetJsonSerializer_LegacyMetadataKey_ValidateStructurePasses
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FSGDynamicTextAssetJsonSerializer_LegacyMetadataKey_ExtractMetadataSucceeds,
-	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.LegacyMetadataKey.ExtractMetadataSucceeds",
+	FSGDynamicTextAssetJsonSerializer_LegacyMetadataKey_ExtractFileInfoSucceeds,
+	"SGDynamicTextAssets.Runtime.Serialization.JsonSerializer.LegacyMetadataKey.ExtractFileInfoSucceeds",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 
-bool FSGDynamicTextAssetJsonSerializer_LegacyMetadataKey_ExtractMetadataSucceeds::RunTest(const FString& Parameters)
+bool FSGDynamicTextAssetJsonSerializer_LegacyMetadataKey_ExtractFileInfoSucceeds::RunTest(const FString& Parameters)
 {
 	FSGDynamicTextAssetJsonSerializer serializer;
-	FSGDynamicTextAssetFileMetadata metadata;
+	FSGDynamicTextAssetFileInfo fileInfo;
 
-	const bool bResult = serializer.ExtractMetadata(
-		SGJsonSerializerTestUtils::BuildLegacyJson(), metadata);
+	const bool bResult = serializer.ExtractFileInfo(
+		SGJsonSerializerTestUtils::BuildLegacyJson(), fileInfo);
 
-	TestTrue(TEXT("ExtractMetadata should succeed with legacy key"), bResult);
-	TestTrue(TEXT("Metadata should be valid"), metadata.bIsValid);
+	TestTrue(TEXT("ExtractFileInfo should succeed with legacy key"), bResult);
+	TestTrue(TEXT("File info should be valid"), fileInfo.bIsValid);
 	TestEqual(TEXT("ID should be extracted correctly"),
-		metadata.Id.ToString(), TEXT("A1B2C3D4-E5F6-7890-ABCD-EF1234567890"));
+		fileInfo.Id.ToString(), TEXT("A1B2C3D4-E5F6-7890-ABCD-EF1234567890"));
 
 	return true;
 }

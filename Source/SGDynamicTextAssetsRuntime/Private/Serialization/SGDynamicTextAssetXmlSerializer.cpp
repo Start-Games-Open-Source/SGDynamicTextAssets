@@ -370,7 +370,7 @@ Property values are converted via the FSGDynamicTextAssetSerializerBase
 JSON-intermediate helpers, keeping format-specific complexity
 contained to the XML-to-FJsonValue bridge.
 
-XML format uses a metadata wrapper block(sgFileInformation), for example:
+XML format uses a file information block (sgFileInformation), for example:
 <?xml version="1.0" encoding="UTF-8"?>
 <DynamicTextAsset>
     <sgFileInformation>
@@ -422,7 +422,7 @@ bool FSGDynamicTextAssetXmlSerializer::SerializeProvider(const ISGDynamicTextAss
     xml += FSGDynamicTextAssetXmlSerializerInternals::XML_DECLARATION;
     xml += FString::Printf(TEXT("<%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::XML_ROOT_TAG);
 
-    // Write to metadata
+    // Write file information fields
     // Write Asset Type ID GUID to the type element, fall back to class name if unavailable
     FString typeString;
     if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
@@ -645,19 +645,19 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: XML has no root node"));
         return false;
     }
-    // Read metadata block
-    const FXmlNode* metadataNode = rootNode->FindChildNode(KEY_FILE_INFORMATION);
-    if (!metadataNode)
+    // Read file information block
+    const FXmlNode* fileInfoNode = rootNode->FindChildNode(KEY_FILE_INFORMATION);
+    if (!fileInfoNode)
     {
-        metadataNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
+        fileInfoNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
     }
-    if (!metadataNode)
+    if (!fileInfoNode)
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: XML missing <%s> (or legacy <%s>) block"), *KEY_FILE_INFORMATION, *KEY_METADATA_LEGACY);
         return false;
     }
     // Validate class type element may contain a GUID (new format) or class name (legacy)
-    if (const FXmlNode* typeNode = metadataNode->FindChildNode(KEY_TYPE))
+    if (const FXmlNode* typeNode = fileInfoNode->FindChildNode(KEY_TYPE))
     {
         const FString typeFieldValue = FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(typeNode->GetContent());
         FSGDynamicTextAssetTypeId fileTypeId = FSGDynamicTextAssetTypeId::FromString(typeFieldValue);
@@ -697,7 +697,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
         }
     }
     // Extract and apply ID
-    if (const FXmlNode* idNode = metadataNode->FindChildNode(KEY_ID))
+    if (const FXmlNode* idNode = fileInfoNode->FindChildNode(KEY_ID))
     {
         FSGDynamicTextAssetId id;
         if (id.ParseString(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(idNode->GetContent())))
@@ -706,13 +706,13 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
         }
     }
     // Extract and apply UserFacingId
-    if (const FXmlNode* userFacingIdNode = metadataNode->FindChildNode(KEY_USER_FACING_ID))
+    if (const FXmlNode* userFacingIdNode = fileInfoNode->FindChildNode(KEY_USER_FACING_ID))
     {
         OutProvider->SetUserFacingId(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(userFacingIdNode->GetContent()));
     }
     // Extract and apply version
     FSGDynamicTextAssetVersion fileVersion;
-    if (const FXmlNode* versionNode = metadataNode->FindChildNode(KEY_VERSION))
+    if (const FXmlNode* versionNode = fileInfoNode->FindChildNode(KEY_VERSION))
     {
         fileVersion = FSGDynamicTextAssetVersion::ParseFromString(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(versionNode->GetContent()));
         OutProvider->SetVersion(fileVersion);
@@ -720,7 +720,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
 
     // Extract file format version (missing = 1.0.0 for pre-format-version files)
     FSGDynamicTextAssetVersion fileFormatVersion(1, 0, 0);
-    if (const FXmlNode* formatVersionNode = metadataNode->FindChildNode(KEY_FILE_FORMAT_VERSION))
+    if (const FXmlNode* formatVersionNode = fileInfoNode->FindChildNode(KEY_FILE_FORMAT_VERSION))
     {
         fileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(
             FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(formatVersionNode->GetContent()));
@@ -932,24 +932,24 @@ bool FSGDynamicTextAssetXmlSerializer::ValidateStructure(const FString& InString
         OutErrorMessage = TEXT("XML has no root node");
         return false;
     }
-    const FXmlNode* metadataNode = rootNode->FindChildNode(KEY_FILE_INFORMATION);
-    if (!metadataNode)
+    const FXmlNode* fileInfoNode = rootNode->FindChildNode(KEY_FILE_INFORMATION);
+    if (!fileInfoNode)
     {
-        metadataNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
+        fileInfoNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
     }
-    if (!metadataNode)
+    if (!fileInfoNode)
     {
         OutErrorMessage = FString::Printf(TEXT("Missing required block <%s> (or legacy <%s>)"), *KEY_FILE_INFORMATION, *KEY_METADATA_LEGACY);
         return false;
     }
-    const FXmlNode* typeNode = metadataNode->FindChildNode(KEY_TYPE);
+    const FXmlNode* typeNode = fileInfoNode->FindChildNode(KEY_TYPE);
     if (!typeNode || typeNode->GetContent().IsEmpty())
     {
         OutErrorMessage = FString::Printf(TEXT("Missing required field <%s> inside <%s>"), *KEY_TYPE, *KEY_FILE_INFORMATION);
         return false;
     }
     // If fileFormatVersion is present, validate it is a parseable version string
-    const FXmlNode* formatVersionNode = metadataNode->FindChildNode(KEY_FILE_FORMAT_VERSION);
+    const FXmlNode* formatVersionNode = fileInfoNode->FindChildNode(KEY_FILE_FORMAT_VERSION);
     if (formatVersionNode && !formatVersionNode->GetContent().IsEmpty())
     {
         FSGDynamicTextAssetVersion parsedVersion = FSGDynamicTextAssetVersion::ParseFromString(
@@ -973,10 +973,10 @@ bool FSGDynamicTextAssetXmlSerializer::ValidateStructure(const FString& InString
     return true;
 }
 
-bool FSGDynamicTextAssetXmlSerializer::ExtractMetadata(const FString& InString, FSGDynamicTextAssetFileMetadata& OutMetadata) const
+bool FSGDynamicTextAssetXmlSerializer::ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const
 {
-    OutMetadata = FSGDynamicTextAssetFileMetadata();
-    OutMetadata.SerializerTypeId = TYPE_ID;
+    OutFileInfo = FSGDynamicTextAssetFileInfo();
+    OutFileInfo.SerializerTypeId = TYPE_ID;
 
     FXmlFile xmlFile(InString, EConstructMethod::ConstructFromBuffer);
     if (!xmlFile.IsValid())
@@ -988,60 +988,60 @@ bool FSGDynamicTextAssetXmlSerializer::ExtractMetadata(const FString& InString, 
     {
         return false;
     }
-    const FXmlNode* metadataNode = rootNode->FindChildNode(KEY_FILE_INFORMATION);
-    if (!metadataNode)
+    const FXmlNode* fileInfoNode = rootNode->FindChildNode(KEY_FILE_INFORMATION);
+    if (!fileInfoNode)
     {
-        metadataNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
+        fileInfoNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
     }
-    if (!metadataNode)
+    if (!fileInfoNode)
     {
         return false;
     }
 
     // Type element may contain a GUID (new format) or class name (legacy)
-    if (const FXmlNode* typeNode = metadataNode->FindChildNode(KEY_TYPE))
+    if (const FXmlNode* typeNode = fileInfoNode->FindChildNode(KEY_TYPE))
     {
         const FString typeFieldValue = FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(typeNode->GetContent());
         FSGDynamicTextAssetTypeId parsedTypeId = FSGDynamicTextAssetTypeId::FromString(typeFieldValue);
         if (parsedTypeId.IsValid())
         {
-            OutMetadata.AssetTypeId = parsedTypeId;
+            OutFileInfo.AssetTypeId = parsedTypeId;
 
             if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
             {
                 if (const UClass* resolvedClass = registry->ResolveClassForTypeId(parsedTypeId))
                 {
-                    OutMetadata.ClassName = resolvedClass->GetName();
+                    OutFileInfo.ClassName = resolvedClass->GetName();
                 }
             }
         }
         else
         {
-            OutMetadata.ClassName = typeFieldValue;
+            OutFileInfo.ClassName = typeFieldValue;
         }
     }
 
-    if (const FXmlNode* idNode = metadataNode->FindChildNode(KEY_ID))
+    if (const FXmlNode* idNode = fileInfoNode->FindChildNode(KEY_ID))
     {
-        OutMetadata.Id.ParseString(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(idNode->GetContent()));
+        OutFileInfo.Id.ParseString(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(idNode->GetContent()));
     }
-    if (const FXmlNode* versionNode = metadataNode->FindChildNode(KEY_VERSION))
+    if (const FXmlNode* versionNode = fileInfoNode->FindChildNode(KEY_VERSION))
     {
-        OutMetadata.Version = FSGDynamicTextAssetVersion::ParseFromString(
+        OutFileInfo.Version = FSGDynamicTextAssetVersion::ParseFromString(
             FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(versionNode->GetContent()));
     }
-    if (const FXmlNode* userFacingIdNode = metadataNode->FindChildNode(KEY_USER_FACING_ID))
+    if (const FXmlNode* userFacingIdNode = fileInfoNode->FindChildNode(KEY_USER_FACING_ID))
     {
-        OutMetadata.UserFacingId = FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(userFacingIdNode->GetContent());
+        OutFileInfo.UserFacingId = FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(userFacingIdNode->GetContent());
     }
-    if (const FXmlNode* formatVersionNode = metadataNode->FindChildNode(KEY_FILE_FORMAT_VERSION))
+    if (const FXmlNode* formatVersionNode = fileInfoNode->FindChildNode(KEY_FILE_FORMAT_VERSION))
     {
-        OutMetadata.FileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(
+        OutFileInfo.FileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(
             FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(formatVersionNode->GetContent()));
     }
 
-    OutMetadata.bIsValid = OutMetadata.AssetTypeId.IsValid() || !OutMetadata.ClassName.IsEmpty();
-    return OutMetadata.bIsValid;
+    OutFileInfo.bIsValid = OutFileInfo.AssetTypeId.IsValid() || !OutFileInfo.ClassName.IsEmpty();
+    return OutFileInfo.bIsValid;
 }
 
 bool FSGDynamicTextAssetXmlSerializer::UpdateFieldsInPlace(FString& InOutContents, const TMap<FString, FString>& FieldUpdates) const
@@ -1065,9 +1065,9 @@ bool FSGDynamicTextAssetXmlSerializer::UpdateFieldsInPlace(FString& InOutContent
         return false;
     }
 
-    // Use targeted regex replacement on the metadata block for each field.
+    // Use targeted regex replacement on the file information block for each field.
     // This avoids round-tripping through a full parse+rebuild which would lose
-    // formatting. The metadata elements are simple scalar leaf nodes with no
+    // formatting. The file information elements are simple scalar leaf nodes with no
     // nested content, so regex replacement is safe and exact.
     bool bAnyUpdated = false;
     for (const TPair<FString, FString>& update : FieldUpdates)
@@ -1084,17 +1084,17 @@ bool FSGDynamicTextAssetXmlSerializer::UpdateFieldsInPlace(FString& InOutContent
         {
             // Use non-regex simple replacement to find the exact pattern:
             // find <key>OLD</key> and replace with <key>NEW</key>.
-            // This is safe because metadata values are leaf text nodes with no children.
+            // This is safe because file information values are leaf text nodes with no children.
             const FXmlFile xmlFile(InOutContents, EConstructMethod::ConstructFromBuffer);
             if (xmlFile.IsValid())
             {
                 const FXmlNode* rootNode = xmlFile.GetRootNode();
-                const FXmlNode* metadataNode = rootNode ? rootNode->FindChildNode(KEY_FILE_INFORMATION) : nullptr;
-                if (!metadataNode && rootNode)
+                const FXmlNode* fileInfoNode = rootNode ? rootNode->FindChildNode(KEY_FILE_INFORMATION) : nullptr;
+                if (!fileInfoNode && rootNode)
                 {
-                    metadataNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
+                    fileInfoNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
                 }
-                const FXmlNode* fieldNode = metadataNode ? metadataNode->FindChildNode(update.Key) : nullptr;
+                const FXmlNode* fieldNode = fileInfoNode ? fileInfoNode->FindChildNode(update.Key) : nullptr;
                 if (fieldNode)
                 {
                     // Build the exact old and new element strings
