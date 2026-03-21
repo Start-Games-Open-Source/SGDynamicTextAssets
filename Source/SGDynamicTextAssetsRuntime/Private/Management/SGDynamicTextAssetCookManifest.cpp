@@ -254,7 +254,7 @@ bool FSGDynamicTextAssetCookManifest::LoadFromFileBinary(const FString& Director
 			FSGDynamicTextAssetCookManifestBinaryHeader::CONTENT_HASH_SIZE) != 0)
 		{
 			UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
-				TEXT("FSGDynamicTextAssetCookManifest: Content hash mismatch in '%s' — file may be corrupt"),
+				TEXT("FSGDynamicTextAssetCookManifest: Content hash mismatch in '%s'  - file may be corrupt"),
 				*filePath);
 			return false;
 		}

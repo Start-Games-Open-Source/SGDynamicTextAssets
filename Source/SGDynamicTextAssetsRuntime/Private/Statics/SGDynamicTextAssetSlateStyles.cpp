@@ -11,6 +11,7 @@ const FName FSGDynamicTextAssetSlateStyles::STYLE_SET_NAME = "SGDynamicTextAsset
 const FName FSGDynamicTextAssetSlateStyles::BRUSH_NAME_JSON = "SGDynamicTextAssets.Icon.JSON";
 const FName FSGDynamicTextAssetSlateStyles::BRUSH_NAME_XML = "SGDynamicTextAssets.Icon.XML";
 const FName FSGDynamicTextAssetSlateStyles::BRUSH_NAME_YAML = "SGDynamicTextAssets.Icon.YAML";
+const FName FSGDynamicTextAssetSlateStyles::BRUSH_NAME_ASSET_BUNDLE = "SGDynamicTextAssets.Icon.AssetBundle";
 
 TSharedPtr<FSlateStyleSet> FSGDynamicTextAssetSlateStyles::StyleSet = nullptr;
 
@@ -39,13 +40,16 @@ void FSGDynamicTextAssetSlateStyles::Initialize()
 	StyleSet->SetContentRoot(plugin->GetBaseDir() / TEXT("Resources"));
 
 	// Create regular style's
-	StyleSet->Set(FSGDynamicTextAssetSlateStyles::BRUSH_NAME_JSON, new IMAGE_BRUSH_PNG(TEXT("json_icon"),
+	StyleSet->Set(BRUSH_NAME_JSON, new IMAGE_BRUSH_PNG(TEXT("json_icon"),
 		FVector2D(FSGDynamicTextAssetSlateStylesInternal::REGULAR_ICON_SIZE)));
 
-	StyleSet->Set(FSGDynamicTextAssetSlateStyles::BRUSH_NAME_XML, new IMAGE_BRUSH_PNG(TEXT("xml_icon"),
+	StyleSet->Set(BRUSH_NAME_XML, new IMAGE_BRUSH_PNG(TEXT("xml_icon"),
 		FVector2D(FSGDynamicTextAssetSlateStylesInternal::REGULAR_ICON_SIZE)));
 
-	StyleSet->Set(FSGDynamicTextAssetSlateStyles::BRUSH_NAME_YAML, new IMAGE_BRUSH_PNG(TEXT("yaml_icon"),
+	StyleSet->Set(BRUSH_NAME_YAML, new IMAGE_BRUSH_PNG(TEXT("yaml_icon"),
+		FVector2D(FSGDynamicTextAssetSlateStylesInternal::REGULAR_ICON_SIZE)));
+
+	StyleSet->Set(BRUSH_NAME_ASSET_BUNDLE, new IMAGE_BRUSH_PNG(TEXT("asset_bundles_icon"),
 		FVector2D(FSGDynamicTextAssetSlateStylesInternal::REGULAR_ICON_SIZE)));
 
 	FSlateStyleRegistry::RegisterSlateStyle(*StyleSet);

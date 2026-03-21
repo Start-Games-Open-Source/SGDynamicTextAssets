@@ -3,7 +3,7 @@
 #include "Browser/SSGDynamicTextAssetDuplicateDialog.h"
 
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "SGDynamicTextAssetEditorLogs.h"
 #include "Core/SGDynamicTextAssetTypeId.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
@@ -203,26 +203,26 @@ FReply SSGDynamicTextAssetDuplicateDialog::OnDuplicateClicked()
 
 	// Check if a file with this name already exists
 	// We need to get the class from the source to check the path
-	FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(SourceFilePath);
-	if (metadata.bIsValid && (metadata.AssetTypeId.IsValid() || !metadata.ClassName.IsEmpty()))
+	FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(SourceFilePath);
+	if (fileInfo.bIsValid && (fileInfo.AssetTypeId.IsValid() || !fileInfo.ClassName.IsEmpty()))
 	{
 		// Resolve class via Asset Type ID, with fallback to class name for legacy files
 		UClass* dataObjectClass = nullptr;
 		if (USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
 		{
-			if (metadata.AssetTypeId.IsValid())
+			if (fileInfo.AssetTypeId.IsValid())
 			{
-				dataObjectClass = registry->ResolveClassForTypeId(metadata.AssetTypeId);
+				dataObjectClass = registry->ResolveClassForTypeId(fileInfo.AssetTypeId);
 			}
 
 			// Fallback: resolve by class name for legacy files without a valid Asset Type ID
-			if (!dataObjectClass && !metadata.ClassName.IsEmpty())
+			if (!dataObjectClass && !fileInfo.ClassName.IsEmpty())
 			{
 				TArray<UClass*> allClasses;
 				registry->GetAllInstantiableClasses(allClasses);
 				for (UClass* registeredClass : allClasses)
 				{
-					if (registeredClass && registeredClass->GetName() == metadata.ClassName)
+					if (registeredClass && registeredClass->GetName() == fileInfo.ClassName)
 					{
 						dataObjectClass = registeredClass;
 						break;
@@ -340,8 +340,8 @@ bool SSGDynamicTextAssetDuplicateDialog::IsNameAlreadyUsed(const FString& Name) 
 
 	for (const FString& filePath : allFilePaths)
 	{
-		FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-		if (metadata.bIsValid && metadata.UserFacingId.Equals(Name, ESearchCase::IgnoreCase))
+		FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+		if (fileInfo.bIsValid && fileInfo.UserFacingId.Equals(Name, ESearchCase::IgnoreCase))
 		{
 			return true;
 		}

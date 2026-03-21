@@ -132,7 +132,7 @@ If the directory is registered but files are still missing from the packaged bui
 
 ### Problem
 
-Dynamic Text Assets are external JSON files — they are not UAssets in the Unreal asset registry. When a DTA has a `TSoftObjectPtr` or `TSoftClassPtr` property referencing a regular Unreal asset (mesh, material, texture, blueprint, etc.), the cooker cannot follow that reference the way it does for normal UObjects. If nothing else in the project hard-references that asset, the cooker excludes it from the packaged build. At runtime, the soft reference resolves to `nullptr`.
+Dynamic Text Assets are external JSON files  - they are not UAssets in the Unreal asset registry. When a DTA has a `TSoftObjectPtr` or `TSoftClassPtr` property referencing a regular Unreal asset (mesh, material, texture, blueprint, etc.), the cooker cannot follow that reference the way it does for normal UObjects. If nothing else in the project hard-references that asset, the cooker excludes it from the packaged build. At runtime, the soft reference resolves to `nullptr`.
 
 ### Solution
 

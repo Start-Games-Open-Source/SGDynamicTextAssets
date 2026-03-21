@@ -45,6 +45,9 @@ public:
 	/** YAML brush name that this plugin uses. */
 	static const FName BRUSH_NAME_YAML;
 
+	/** Asset bundle brush name that this plugin uses. */
+	static const FName BRUSH_NAME_ASSET_BUNDLE;
+
 private:
 
 	/** The style set associated with this plugin */

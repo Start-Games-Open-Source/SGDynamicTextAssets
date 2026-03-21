@@ -51,6 +51,8 @@ Credit to **Start Games Open Source** must remain intact in any copy or distribu
 - **Runtime immutability**: Assets are read-only at runtime, simplifying caching and data flow
 - **Interface-driven design**: `ISGDynamicTextAssetProvider` defines the core contract; `USGDynamicTextAsset` is the default base class
 - **Soft references only**: `FSGDynamicTextAssetRef` stores a GUID, resolved lazily at runtime. Hard references are prohibited at compile time by a UHT validator
+- **Asset bundles**: Tag `TSoftObjectPtr`/`TSoftClassPtr` properties with named bundles for selective batch loading via `FStreamableManager`
+- **Instanced sub-objects**: Support for `Instanced` UPROPERTYs with polymorphic serialization across all formats
 - **Semantic versioning**: Major.Minor.Patch versioning with automatic migration on breaking changes
 - **Editor tooling**: Browser, inline editor, reference viewer, property customizations, source control integration
 - **Server integration**: Optional backend override layer for live data (hot-fixes, A/B testing)
@@ -171,8 +173,8 @@ See the full [Quick Start Guide](Documentation/QuickStartGuide.md) for details.
 
 The plugin is split into two modules:
 
-- **SGDynamicTextAssetsRuntime** (`Runtime`, `PreDefault`) — Core types, serializers, subsystem, file management, server interface. Ships in packaged builds.
-- **SGDynamicTextAssetsEditor** (`Editor`, `Default`) — Browser, editor, reference viewer, property customizations, cook pipeline, source control. Editor-only.
+- **SGDynamicTextAssetsRuntime** (`Runtime`, `PreDefault`)  - Core types, serializers, subsystem, file management, server interface. Ships in packaged builds.
+- **SGDynamicTextAssetsEditor** (`Editor`, `Default`)  - Browser, editor, reference viewer, property customizations, cook pipeline, source control. Editor-only.
 
 ```
 +-------------------------------+       +-------------------------------+
@@ -184,10 +186,11 @@ The plugin is split into two modules:
 |  Reference Viewer (UI)        |       |  FSGDynamicTextAssetId        |
 |  Property Customizations      |       |  FSGDynamicTextAssetRef       |
 |  Source Control Utils         |       |  FSGDynamicTextAssetVersion   |
-|  Cook Pipeline & Utilities    |       |  USGDynamicTextAssetSubsystem |
-|  Cook/Validation Commandlets  |       |  USGDynamicTextAssetRegistry  |
-|  Editor Settings              |       |  FSGDynamicTextAssetFileManager|
-+-------------------------------+       |  JSON Serializer (TypeId=1)   |
+|  Cook Pipeline & Utilities    |       |  FSGDynamicTextAssetBundleData|
+|  Cook/Validation Commandlets  |       |  USGDynamicTextAssetSubsystem |
+|  Editor Settings              |       |  USGDynamicTextAssetRegistry  |
++-------------------------------+       |  FSGDynamicTextAssetFileManager|
+                                        |  JSON Serializer (TypeId=1)   |
                                         |  XML Serializer  (TypeId=2)   |
                                         |  YAML Serializer (TypeId=3)   |
                                         |  Binary Serializer            |
@@ -206,6 +209,7 @@ The plugin is split into two modules:
 - **GUID identity**: `FSGDynamicTextAssetId` is permanent; `UserFacingId` is human-readable and renameable
 - **Runtime immutability**: Read-only at runtime, editable only in the editor
 - **Soft references only**: No hard asset references; compile-time enforcement via UHT validator
+- **Asset bundles**: Named bundle groups for selective batch loading of soft references
 - **Semantic versioning**: Major.Minor.Patch with built-in migration for breaking changes
 
 ## Plugin Structure
@@ -277,6 +281,8 @@ See [Cook Pipeline](Documentation/Serialization/CookPipeline.md) and [Cook Manif
 | **FSGDynamicTextAssetId** | Wrapper around `FGuid` that uniquely identifies a dynamic text asset. Assigned at creation, never changes. |
 | **UserFacingId** | Human-readable string identifier (e.g., `"excalibur"`) used as the filename and display name. Can be renamed. |
 | **FSGDynamicTextAssetRef** | Lightweight struct that references a dynamic text asset by `FSGDynamicTextAssetId`, resolved lazily at runtime. |
+| **Asset Bundle** | A named group of soft references on a DTA, loaded selectively via `FStreamableManager`. Tagged with `meta=(AssetBundles="BundleName")`. |
+| **Instanced Sub-object** | A polymorphic `UObject` owned by a DTA via `UPROPERTY(Instanced)`. Serialized inline with full class type information. |
 | **`.dta.json` / `.dta.xml` / `.dta.yaml`** | Text source file formats for development. |
 | **`.dta.bin`** | Compressed binary format for cooked/packaged builds. |
 | **Cook Manifest** | Binary manifest (`dta_manifest.bin`) mapping GUIDs to class names and user-facing IDs in cooked builds. |
@@ -293,6 +299,7 @@ Full documentation is in the [Documentation](Documentation/TableOfContents.md) f
 - [Dynamic Text Assets](Documentation/Core/DynamicTextAssets.md): Base class, GUIDs, UserFacingId, versioning
 - [Dynamic Text Asset References](Documentation/Core/DynamicTextAssetReferences.md): FSGDynamicTextAssetRef, resolving, type filters
 - [Versioning and Migration](Documentation/Core/VersioningAndMigration.md): Semantic versioning, migration hooks
+- [Asset Bundles](Documentation/Core/AssetBundles.md): Named bundle groups, property tagging, selective loading
 - [Validation](Documentation/Core/Validation.md): Validation framework, custom hooks, severity levels
 - [UHT Plugin](Documentation/Core/UhtPlugin.md): Compile-time hard reference validation
 

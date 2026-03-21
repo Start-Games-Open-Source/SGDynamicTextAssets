@@ -7,7 +7,9 @@
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SExpandableArea.h"
 #include "Styling/AppStyle.h"
+#include "Styling/StyleDefaults.h"
 #include "Widgets/Layout/SSpacer.h"
 
 namespace SSGDynamicTextAssetIdentityBlockInternals
@@ -19,9 +21,7 @@ namespace SSGDynamicTextAssetIdentityBlockInternals
 
 void SSGDynamicTextAssetIdentityBlock::Construct(const FArguments& InArgs)
 {
-	ChildSlot
-	[
-		SNew(SVerticalBox)
+	TSharedRef<SVerticalBox> verticalBox = SNew(SVerticalBox)
 
 		// User Facing ID Row
 		+ SVerticalBox::Slot()
@@ -192,11 +192,105 @@ void SSGDynamicTextAssetIdentityBlock::Construct(const FArguments& InArgs)
 						.Font(FAppStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
 					]
 				])
-		]
+		];
+
+	// Optional collapsible File Format Version section (only shown when data is provided)
+	if (!InArgs._FileFormatVersion.IsEmpty())
+	{
+		verticalBox->AddSlot()
+			.AutoHeight()
+			.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+			[
+				SAssignNew(CollapsibleArea, SExpandableArea)
+				.InitiallyCollapsed(true)
+				.BorderImage(FStyleDefaults::GetNoBrush())
+				.BorderBackgroundColor(FLinearColor::Transparent)
+				.HeaderPadding(FMargin(0.0f))
+				.Padding(FMargin(20.0f, 2.0f, 0.0f, 0.0f))
+				.HeaderContent()
+				[
+					SNew(STextBlock)
+					.Text(INVTEXT("Advanced"))
+					.Font(FAppStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+				]
+				.BodyContent()
+				[
+					CreateRowBorders(
+						SNew(SHorizontalBox)
+
+						+ SHorizontalBox::Slot()
+						.FillWidth(SSGDynamicTextAssetIdentityBlockInternals::NameFillWidth)
+						.HAlign(HAlign_Left)
+						.VAlign(VAlign_Center)
+						[
+							SNew(SVerticalBox)
+							.ToolTipText(INVTEXT("The file format version that this DTA file type is using.\nMay or may not be up to date with the file type's file format version."))
+
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(STextBlock)
+								.Text(INVTEXT("File Format Version"))
+								.Font(FAppStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+							]
+
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(STextBlock)
+								.Text(INVTEXT("(Major.Minor.Patch)"))
+								.Font(FAppStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+							]
+						]
+
+						+ SHorizontalBox::Slot()
+						.FillWidth(SSGDynamicTextAssetIdentityBlockInternals::ValueFillWidth)
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Center)
+						[
+							SNew(SHorizontalBox)
+							// Copy Button
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.VAlign(VAlign_Center)
+							.Padding(0.0f, 0.0f, SSGDynamicTextAssetIdentityBlockInternals::ButtonRightPadding, 0.0f)
+							[
+								FSGDynamicTextAssetIdentityCustomization::CreateCopyButton(
+									FOnClicked::CreateLambda([this]() -> FReply
+									{
+										if (FileFormatVersionTextblock.IsValid() && !FileFormatVersionTextblock->GetText().IsEmpty())
+										{
+											FPlatformApplicationMisc::ClipboardCopy(*FileFormatVersionTextblock->GetText().ToString());
+											UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Copied File Format Version to clipboard."));
+										}
+										return FReply::Handled();
+									}),
+									INVTEXT("Copy File Format Version to clipboard.")
+								)
+							]
+
+							// Text Value
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.VAlign(VAlign_Center)
+							[
+								SAssignNew(FileFormatVersionTextblock, STextBlock)
+								.Text(InArgs._FileFormatVersion)
+								.Font(FAppStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+							]
+						])
+				]
+			];
+	}
+
+	ChildSlot
+	[
+		verticalBox
 	];
 }
 
-void SSGDynamicTextAssetIdentityBlock::SetIdentityProperties(const FText& InDynamicTextAssetId, const FText& InUserFacingId, const FText& InVersion)
+void SSGDynamicTextAssetIdentityBlock::SetIdentityProperties(const FText& InDynamicTextAssetId, const FText& InUserFacingId,
+	const FText& InVersion, const FText& InFileFormatVersion)
 {
 	if (IdTextblock.IsValid())
 	{
@@ -209,6 +303,10 @@ void SSGDynamicTextAssetIdentityBlock::SetIdentityProperties(const FText& InDyna
 	if (VersionTextblock.IsValid())
 	{
 		VersionTextblock->SetText(InVersion);
+	}
+	if (FileFormatVersionTextblock.IsValid() && !InFileFormatVersion.IsEmpty())
+	{
+		FileFormatVersionTextblock->SetText(InFileFormatVersion);
 	}
 }
 

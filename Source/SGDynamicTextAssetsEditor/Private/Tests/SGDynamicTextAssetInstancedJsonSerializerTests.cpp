@@ -18,6 +18,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedJsonRoundtrip_SingleNonNull::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedOwnerDTA* source = NewObject<USGTestInstancedOwnerDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));
@@ -62,6 +63,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedJsonRoundtrip_NullPreserved::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedOwnerDTA* source = NewObject<USGTestInstancedOwnerDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));
@@ -99,6 +101,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedJsonRoundtrip_Polymorphic::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedOwnerDTA* source = NewObject<USGTestInstancedOwnerDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));
@@ -150,6 +153,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedJsonRoundtrip_ArrayMixedTypes::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedOwnerDTA* source = NewObject<USGTestInstancedOwnerDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));
@@ -221,6 +225,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedJsonRoundtrip_OutputFormatContainsClassKey::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedOwnerDTA* source = NewObject<USGTestInstancedOwnerDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));

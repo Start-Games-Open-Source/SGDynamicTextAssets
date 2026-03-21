@@ -257,7 +257,7 @@ bool FSGDynamicTextAssetFileManager_ReadRawFileContents_JsonFile::RunTest(const 
 	FString testDir = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Tests"));
 	FString testFilePath = FPaths::Combine(testDir, TEXT("test_read_json.dta.json"));
 	FString expectedContents = FString::Printf(TEXT("{\"%s\":{\"%s\":\"TestClass\",\"%s\":\"00000000-0000-0000-0000-000000000001\",\"%s\":\"1.0.0\"},\"%s\":{}}"),
-		*ISGDynamicTextAssetSerializer::KEY_METADATA,
+		*ISGDynamicTextAssetSerializer::KEY_FILE_INFORMATION,
 		*ISGDynamicTextAssetSerializer::KEY_TYPE,
 		*ISGDynamicTextAssetSerializer::KEY_ID,
 		*ISGDynamicTextAssetSerializer::KEY_VERSION,
@@ -306,7 +306,7 @@ bool FSGDynamicTextAssetFileManager_ReadRawFileContents_BinaryRoundtrip::RunTest
 	FSGDynamicTextAssetId testId = FSGDynamicTextAssetId::NewGeneratedId();
 	FString originalJson = FString::Printf(
 		TEXT("{\"%s\":{\"%s\":\"TestBinaryClass\",\"%s\":\"%s\",\"%s\":\"1.0.0\"},\"%s\":{\"value\":42}}"),
-		*ISGDynamicTextAssetSerializer::KEY_METADATA,
+		*ISGDynamicTextAssetSerializer::KEY_FILE_INFORMATION,
 		*ISGDynamicTextAssetSerializer::KEY_TYPE,
 		*ISGDynamicTextAssetSerializer::KEY_ID,
 		*testId.ToString(),

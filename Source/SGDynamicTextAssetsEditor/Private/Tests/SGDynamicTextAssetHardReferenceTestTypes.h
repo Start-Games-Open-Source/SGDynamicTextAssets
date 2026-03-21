@@ -114,6 +114,8 @@ public:
 		const FSGDynamicTextAssetVersion& OldVersion,
 		const FSGDynamicTextAssetVersion& CurrentVersion,
 		const TSharedPtr<FJsonObject>& OldData) override { return true; }
+	virtual const FSGDynamicTextAssetBundleData& GetSGDTAssetBundleData() const override { return BundleData; }
+	virtual FSGDynamicTextAssetBundleData& GetMutableSGDTAssetBundleData() override { return BundleData; }
 	// ~ISGDynamicTextAssetProvider interface
 
 	/** Hard reference - should be detected as violation if SGSkipHardRefValidation is removed. */
@@ -129,6 +131,7 @@ private:
 	FSGDynamicTextAssetId Id;
 	FString UserFacingId;
 	FSGDynamicTextAssetVersion Version;
+	FSGDynamicTextAssetBundleData BundleData;
 };
 
 /**

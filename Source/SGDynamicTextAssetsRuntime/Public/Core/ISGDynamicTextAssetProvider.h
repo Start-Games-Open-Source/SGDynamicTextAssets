@@ -7,6 +7,7 @@
 #include "Core/SGDynamicTextAssetId.h"
 #include "Core/SGDynamicTextAssetVersion.h"
 #include "Core/SGDynamicTextAssetValidationResult.h"
+#include "Core/SGDynamicTextAssetBundleData.h"
 #include "Dom/JsonObject.h"
 #include "SGDynamicTextAssetDelegates.h"
 #include "UObject/Interface.h"
@@ -118,7 +119,7 @@ public:
 	 * @param OutResult Container to populate with validation entries
 	 * @return True if no error-severity entries were produced
 	 */
-	virtual bool Native_ValidateDynamicTextAsset(FSGDynamicTextAssetValidationResult& OutResult) const = 0;
+	virtual bool Native_ValidateDynamicTextAsset(FSGDynamicTextAssetValidationResult& OutResult) const;
 
 	/**
 	 * Called when loading data from an older version.
@@ -137,6 +138,15 @@ public:
 		const FSGDynamicTextAssetVersion& OldVersion,
 		const FSGDynamicTextAssetVersion& CurrentVersion,
 		const TSharedPtr<FJsonObject>& OldData) = 0;
+
+	/** Returns the asset bundle data extracted from this provider's soft reference properties. */
+	virtual const FSGDynamicTextAssetBundleData& GetSGDTAssetBundleData() const = 0;
+
+	/** Returns a mutable reference to the asset bundle data. */
+	virtual FSGDynamicTextAssetBundleData& GetMutableSGDTAssetBundleData() = 0;
+
+	/** Returns true if this provider has any asset bundles. */
+	virtual bool HasSGDTAssetBundles() const;
 
 #if WITH_EDITOR
 	/** Notifies listeners that this dynamic text asset has changed */

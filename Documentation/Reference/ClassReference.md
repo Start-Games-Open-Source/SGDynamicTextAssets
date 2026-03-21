@@ -35,7 +35,7 @@ Quick reference of all classes, structs, and enums in the SGDynamicTextAssets pl
 | `FSGDynamicTextAssetVersion` | `SGDynamicTextAssetVersion.h` | [Versioning and Migration](../Core/VersioningAndMigration.md) | Semantic version (Major.Minor.Patch) |
 | `FSGDynamicTextAssetValidationEntry` | `SGDynamicTextAssetValidationResult.h` | [Validation](../Core/Validation.md) | Single validation finding with severity, message, property path |
 | `FSGDynamicTextAssetValidationResult` | `SGDynamicTextAssetValidationResult.h` | [Validation](../Core/Validation.md) | Container for validation entries (errors, warnings, infos) |
-| `FSGDynamicTextAssetFileMetadata` | `SGDynamicTextAssetFileMetadata.h` | [File Manager](../Runtime/FileManager.md) | Extracted file metadata without full deserialization |
+| `FSGDynamicTextAssetFileInfo` | `SGDynamicTextAssetFileInfo.h` | [File Manager](../Runtime/FileManager.md) | Extracted file information without full deserialization |
 | `FSGDynamicTextAssetCookManifestEntry` | `SGDynamicTextAssetCookManifest.h/.cpp` | [Cook Manifest](../Serialization/CookManifest.md) | Single cook manifest entry (ID, ClassName, UserFacingId) |
 | `FSGBinaryDynamicTextAssetHeader` | `SGBinaryDynamicTextAssetHeader.h` | [Binary Format](../Serialization/BinaryFormat.md) | 80-byte binary file header |
 | `FSGServerDynamicTextAssetRequest` | `ISGDynamicTextAssetServerInterface.h` | [Server Interface](../Server/ServerInterface.md) | Server request payload (FSGDynamicTextAssetId + local version) |

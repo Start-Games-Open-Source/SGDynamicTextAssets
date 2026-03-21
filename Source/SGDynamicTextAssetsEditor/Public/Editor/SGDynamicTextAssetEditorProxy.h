@@ -14,7 +14,7 @@
  *
  * FAssetEditorToolkit requires a UObject to identify the asset being edited.
  * Because dynamic text assets are plain JSON files (not UAssets), this lightweight
- * proxy bridges the gap — it is created transiently and carries the file path
+ * proxy bridges the gap  - it is created transiently and carries the file path
  * and class needed to initialise the editor.
  *
  * Never saved to disk. One proxy instance is created per opened editor window.

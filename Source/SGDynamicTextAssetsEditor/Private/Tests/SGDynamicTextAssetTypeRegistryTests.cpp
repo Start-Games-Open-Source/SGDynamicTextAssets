@@ -49,7 +49,7 @@ namespace SGTypeRegistryTestUtils
 }
 
 // ---------------------------------------------------------------------------
-// 1. SyncManifests — Base Class Has TypeId
+// 1. SyncManifests  - Base Class Has TypeId
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -73,7 +73,7 @@ bool FRegistry_SyncManifests_BaseClassHasTypeId::RunTest(const FString& Paramete
 }
 
 // ---------------------------------------------------------------------------
-// 2. SyncManifests — Child Class Has TypeId
+// 2. SyncManifests  - Child Class Has TypeId
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -107,7 +107,7 @@ bool FRegistry_SyncManifests_ChildClassHasTypeId::RunTest(const FString& Paramet
 }
 
 // ---------------------------------------------------------------------------
-// 3. SyncManifests — Manifest Exists For Root
+// 3. SyncManifests  - Manifest Exists For Root
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -133,7 +133,7 @@ bool FRegistry_SyncManifests_ManifestExistsForRoot::RunTest(const FString& Param
 }
 
 // ---------------------------------------------------------------------------
-// 4. SyncManifests — Manifest Contains Child Class
+// 4. SyncManifests  - Manifest Contains Child Class
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -182,7 +182,7 @@ bool FRegistry_SyncManifests_ManifestContainsChildClass::RunTest(const FString& 
 }
 
 // ---------------------------------------------------------------------------
-// 5. ResolveClass — Valid TypeId
+// 5. ResolveClass  - Valid TypeId
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -218,7 +218,7 @@ bool FRegistry_ResolveClass_ValidTypeId::RunTest(const FString& Parameters)
 }
 
 // ---------------------------------------------------------------------------
-// 6. ResolveClass — Invalid TypeId
+// 6. ResolveClass  - Invalid TypeId
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -242,7 +242,7 @@ bool FRegistry_ResolveClass_InvalidTypeId::RunTest(const FString& Parameters)
 }
 
 // ---------------------------------------------------------------------------
-// 7. GetSoftClass — Valid TypeId
+// 7. GetSoftClass  - Valid TypeId
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -276,7 +276,7 @@ bool FRegistry_GetSoftClass_ValidTypeId::RunTest(const FString& Parameters)
 }
 
 // ---------------------------------------------------------------------------
-// 8. FolderPath — Contains TypeId
+// 8. FolderPath  - Contains TypeId
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -312,7 +312,7 @@ bool FRegistry_FolderPath_ContainsTypeId::RunTest(const FString& Parameters)
 }
 
 // ---------------------------------------------------------------------------
-// 9. FolderPath — Hierarchy Segments
+// 9. FolderPath  - Hierarchy Segments
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -336,11 +336,11 @@ bool FRegistry_FolderPath_HierarchySegments::RunTest(const FString& Parameters)
 		return false;
 	}
 
-	// Base class folder path — the root class itself is the boundary
+	// Base class folder path  - the root class itself is the boundary
 	FString baseFolderPath = FSGDynamicTextAssetFileManager::GetRelativeFolderPathForClass(
 		USGDynamicTextAsset::StaticClass());
 
-	// Child class folder path — should have at least one segment beyond the root
+	// Child class folder path  - should have at least one segment beyond the root
 	FString childFolderPath = FSGDynamicTextAssetFileManager::GetRelativeFolderPathForClass(childClass);
 
 	TestFalse(TEXT("Base folder path should not be empty"), baseFolderPath.IsEmpty());
@@ -359,7 +359,7 @@ bool FRegistry_FolderPath_HierarchySegments::RunTest(const FString& Parameters)
 }
 
 // ---------------------------------------------------------------------------
-// 10. TypeId Roundtrip — Class → TypeId → Class
+// 10. TypeId Roundtrip  - Class → TypeId → Class
 // ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(

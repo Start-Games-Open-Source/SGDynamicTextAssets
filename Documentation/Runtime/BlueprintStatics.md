@@ -37,7 +37,7 @@ These functions require a world context object to access the subsystem.
 |----------|------|-------------|
 | `IsDynamicTextAssetRefLoaded(WorldContext, Ref)` | Pure | Returns true if the referenced object is in cache |
 | `GetDynamicTextAsset(WorldContext, Ref)` | Pure | Resolves the reference to `TScriptInterface<ISGDynamicTextAssetProvider>`. Returns invalid interface if not cached. |
-| `LoadDynamicTextAssetRefAsync(WorldContext, Ref, OnLoaded, FilePath)` | Callable | Loads the referenced object asynchronously. `FilePath` is optional: if empty, the system searches by ID. |
+| `LoadDynamicTextAssetRefAsync(WorldContext, Ref, OnLoaded, BundleNames, FilePath)` | Callable | Loads the referenced object asynchronously. `BundleNames` is optional: when non-empty, bundle assets are also async-loaded before the callback fires. `FilePath` is optional: if empty, the system searches by ID. Delegates internally to `FSGDynamicTextAssetRef::LoadAsync`. |
 | `UnloadDynamicTextAssetRef(WorldContext, Ref)` | Callable | Removes the referenced object from cache |
 
 ## Collection Functions
@@ -118,6 +118,22 @@ These functions query `FSGDynamicTextAssetValidationResult` structs. See [Valida
 | `LogRegisteredSerializers()` | Callable | Logs all registered serializer types and IDs to the output log. Disabled in shipping builds by default. |
 | `GetRegisteredSerializerDescriptions(OutDescriptions)` | Callable | Returns a diagnostic string for each serializer formatted as `"TypeId=N \| Extension='ext' \| Format='name'"` |
 
+## Bundle Functions
+
+These functions operate on `FSGDynamicTextAssetBundleData` structs. See [Asset Bundles](../Core/AssetBundles.md) for the full bundle system.
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `GetBundleDataFromRef(WorldContext, Ref, OutBundleData)` | Pure | Retrieves asset bundle data for the DTA referenced by Ref. Resolves through the subsystem when available, falls back to the editor cache outside PIE. Returns true if found. |
+| `GetBundleDataFromProvider(Provider, OutBundleData)` | Pure | Retrieves asset bundle data directly from a provider. Returns true if the provider is valid and has bundle data. |
+| `HasBundles(BundleData)` | Pure | Returns true if the bundle data contains any bundles |
+| `GetBundleCount(BundleData)` | Pure | Returns the number of bundles in the bundle data |
+| `GetBundleNames(BundleData, OutBundleNames)` | Pure | Populates the output array with all bundle names |
+| `GetPathsForBundle(BundleData, BundleName, OutPaths)` | Pure | Collects all soft object paths for a specific bundle. Appends to OutPaths without clearing. Returns true if found. |
+| `GetBundleEntries(BundleData, BundleName, OutEntries)` | Pure | Returns all `FSGDynamicTextAssetBundleEntry` entries for a specific bundle. Returns true if found. |
+| `ExtractBundleDataFromObject(Object, BundleData)` | Callable | Extracts bundle metadata from a UObject by walking its UPROPERTY fields tagged with `AssetBundles` meta. Editor-only operation (no-op in packaged builds). |
+| `ResetBundleData(BundleData)` | Callable | Clears all bundle data |
+
 ## C++ Only Utility Functions
 
 These functions are not exposed to Blueprints (serializer instances are not UObjects).
@@ -127,6 +143,7 @@ These functions are not exposed to Blueprints (serializer instances are not UObj
 | `FindSerializerForTypeId(TypeId)` | Returns the serializer registered with the given integer TypeId, or nullptr |
 | `FindSerializerForDynamicTextAssetId(Id)` | Locates the file for the ID and returns the matching serializer for its format |
 | `GetTypeIdForExtension(Extension)` | Returns the integer TypeId for a given extension (e.g., `"dta.json"` -> `1`), or 0 if not found |
+| `ValidateSoftPathsInProperty(Property, ContainerPtr, PropertyPath, OutResult)` | Validates soft object and soft class path properties, confirming referenced assets exist and paths are valid. Populates OutResult with any validation issues found. |
 
 ## Collection Query Performance Notes
 

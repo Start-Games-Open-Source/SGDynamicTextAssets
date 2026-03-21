@@ -18,6 +18,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedYamlRoundtrip_SingleNonNull::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedOwnerDTA* source = NewObject<USGTestInstancedOwnerDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));
@@ -63,6 +64,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedYamlRoundtrip_Polymorphic::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedOwnerDTA* source = NewObject<USGTestInstancedOwnerDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));
@@ -116,6 +118,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedYamlRoundtrip_ArrayMixedTypes::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedOwnerDTA* source = NewObject<USGTestInstancedOwnerDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));

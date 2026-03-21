@@ -18,6 +18,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedStructJsonRoundtrip_SingleBase::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedStructDTA* source = NewObject<USGTestInstancedStructDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));
@@ -66,6 +67,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedStructJsonRoundtrip_ArrayMixed::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedStructDTA* source = NewObject<USGTestInstancedStructDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));
@@ -139,6 +141,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FInstancedStructJsonRoundtrip_EmptyGraceful::RunTest(const FString& Parameters)
 {
+	AddExpectedMessage(TEXT("No valid Asset Type ID found for class"), EAutomationExpectedMessageFlags::Contains);
 	// Arrange
 	USGTestInstancedStructDTA* source = NewObject<USGTestInstancedStructDTA>();
 	source->SetVersion(FSGDynamicTextAssetVersion(1, 0, 0));

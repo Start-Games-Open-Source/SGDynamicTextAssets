@@ -6,6 +6,7 @@
 #include "Core/ISGDynamicTextAssetProvider.h"
 #include "Core/SGDynamicTextAsset.h"
 #include "Dom/JsonObject.h"
+#include "Engine/AssetManager.h"
 #include "Engine/Engine.h"
 #include "GameFramework/Actor.h"
 #include "GenericPlatform/GenericPlatformFile.h"
@@ -44,8 +45,11 @@ void USGDynamicTextAssetRegistry::Initialize(FSubsystemCollectionBase& Collectio
 
     if (FSGDynamicTextAssetFileManager::ShouldUseCookedDirectory())
     {
-        // Packaged builds: load pre-cooked type manifests from _TypeManifests/
-        LoadCookedManifests();
+        // Packaged builds: defer loading cooked manifests until UAssetManager is ready.
+        // The subsystem initializes before the AssetManager during engine startup,
+        // so we register a callback to load once it becomes available.
+        UAssetManager::CallOrRegister_OnAssetManagerCreated(
+            FSimpleMulticastDelegate::FDelegate::CreateUObject(this, &USGDynamicTextAssetRegistry::LoadCookedManifests));
     }
     else
     {
@@ -355,6 +359,8 @@ void USGDynamicTextAssetRegistry::LoadCookedManifests()
 {
     FString typeManifestsDir = FSGDynamicTextAssetFileManager::GetCookedTypeManifestsPath();
 
+    FStreamableManager& manager = UAssetManager::Get().GetStreamableManager();
+
     // Find all .json files in _TypeManifests/
     TArray<FString> manifestFilenames;
     IFileManager::Get().FindFiles(manifestFilenames, *FPaths::Combine(typeManifestsDir, TEXT("*.json")), true, false);
@@ -373,10 +379,9 @@ void USGDynamicTextAssetRegistry::LoadCookedManifests()
 
         // Identify root class from the manifest's root type ID
         UClass* rootClass = nullptr;
-        const FSGDynamicTextAssetTypeManifestEntry* rootEntry = manifest->FindByTypeId(manifest->GetRootTypeId());
-        if (rootEntry)
+        if (const FSGDynamicTextAssetTypeManifestEntry* rootEntry = manifest->FindByTypeId(manifest->GetRootTypeId()))
         {
-            rootClass = rootEntry->Class.LoadSynchronous();
+            rootClass = manager.LoadSynchronous(rootEntry->Class);
         }
 
         // Store manifest keyed by root class for GetManifestForRootClass()
@@ -670,27 +675,23 @@ void USGDynamicTextAssetRegistry::ApplyServerTypeOverrides(const TSharedPtr<FJso
     }
 
     int32 appliedCount = 0;
-    for (const auto& [rootTypeIdString, value] : (*manifestsObject)->Values)
+    for (const TPair<FString, TSharedPtr<FJsonValue>>& serverEntry : (*manifestsObject)->Values)
     {
-        FSGDynamicTextAssetTypeId rootTypeId = FSGDynamicTextAssetTypeId::FromString(rootTypeIdString);
-        if (!rootTypeId.IsValid())
+        const FString& rootTypeId = serverEntry.Key;
+        const TSharedPtr<FJsonObject> rootData = serverEntry.Value.IsValid() ? serverEntry.Value->AsObject() : nullptr;
+        if (!rootData.IsValid())
         {
-            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
-                TEXT("ApplyServerTypeOverrides: Invalid root type ID '%s'"), *rootTypeIdString);
             continue;
         }
 
-        // Find the manifest matching this root type ID
-        for (auto& [classWeak, manifest] : RootClassManifests)
+        // Find the matching manifest by root type ID
+        for (TPair<TWeakObjectPtr<UClass>, TSharedPtr<FSGDynamicTextAssetTypeManifest>>& manifestEntry : RootClassManifests)
         {
-            if (manifest.IsValid() && manifest->GetRootTypeId() == rootTypeId)
+            if (manifestEntry.Value.IsValid()
+                && manifestEntry.Value->GetRootTypeId() == FSGDynamicTextAssetTypeId::FromString(rootTypeId))
             {
-                TSharedPtr<FJsonObject> rootData = value->AsObject();
-                if (rootData.IsValid())
-                {
-                    manifest->ApplyServerOverrides(rootData);
-                    appliedCount++;
-                }
+                manifestEntry.Value->ApplyServerOverrides(rootData);
+                appliedCount++;
                 break;
             }
         }
@@ -709,11 +710,11 @@ void USGDynamicTextAssetRegistry::ApplyServerTypeOverrides(const TSharedPtr<FJso
 void USGDynamicTextAssetRegistry::ClearServerTypeOverrides()
 {
     bool bHadOverrides = false;
-    for (auto& [classWeak, manifest] : RootClassManifests)
+    for (TPair<TWeakObjectPtr<UClass>, TSharedPtr<FSGDynamicTextAssetTypeManifest>>& pair : RootClassManifests)
     {
-        if (manifest.IsValid() && manifest->HasServerOverrides())
+        if (pair.Value.IsValid() && pair.Value->HasServerOverrides())
         {
-            manifest->ClearServerOverrides();
+            pair.Value->ClearServerOverrides();
             bHadOverrides = true;
         }
     }
@@ -731,9 +732,9 @@ void USGDynamicTextAssetRegistry::ClearServerTypeOverrides()
 
 bool USGDynamicTextAssetRegistry::HasServerTypeOverrides() const
 {
-    for (const auto& [classWeak, manifest] : RootClassManifests)
+    for (const TPair<TWeakObjectPtr<UClass>, TSharedPtr<FSGDynamicTextAssetTypeManifest>>& pair : RootClassManifests)
     {
-        if (manifest.IsValid() && manifest->HasServerOverrides())
+        if (pair.Value.IsValid() && pair.Value->HasServerOverrides())
         {
             return true;
         }
@@ -746,22 +747,23 @@ void USGDynamicTextAssetRegistry::RebuildTypeIdMaps()
     TypeIdToSoftClassMap.Empty();
     ClassToTypeIdMap.Empty();
 
-    for (const auto& [classWeak, manifest] : RootClassManifests)
+    FStreamableManager& manager = UAssetManager::Get().GetStreamableManager();
+
+    for (const TPair<TWeakObjectPtr<UClass>, TSharedPtr<FSGDynamicTextAssetTypeManifest>>& pair : RootClassManifests)
     {
-        if (!manifest.IsValid())
+        if (!pair.Value.IsValid())
         {
             continue;
         }
 
         TArray<FSGDynamicTextAssetTypeManifestEntry> effectiveEntries;
-        manifest->GetAllEffectiveTypes(effectiveEntries);
+        pair.Value->GetAllEffectiveTypes(effectiveEntries);
 
         for (const FSGDynamicTextAssetTypeManifestEntry& entry : effectiveEntries)
         {
             TypeIdToSoftClassMap.Add(entry.TypeId, entry.Class);
 
-            UClass* resolvedClass = entry.Class.LoadSynchronous();
-            if (resolvedClass)
+            if (UClass* resolvedClass = manager.LoadSynchronous(entry.Class))
             {
                 ClassToTypeIdMap.Add(resolvedClass, entry.TypeId);
             }

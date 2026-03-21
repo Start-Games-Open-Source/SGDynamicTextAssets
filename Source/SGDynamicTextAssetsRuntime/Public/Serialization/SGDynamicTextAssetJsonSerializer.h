@@ -19,9 +19,9 @@ class USGDynamicTextAsset;
  * Uses Unreal's property reflection system to serialize/deserialize
  * all UPROPERTY marked fields on USGDynamicTextAsset subclasses.
  *
- * JSON format uses a metadata wrapper block, for example:
+ * JSON format uses a metadata wrapper block(sgFileInformation), for example:
  * {
- *   "metadata": {
+ *   "sgFileInformation": {
  *     "type": "UWeaponData",
  *     "version": "1.0.0",
  *     "id": "...",
@@ -55,11 +55,15 @@ public:
     virtual FText GetFormatName() const override;
     virtual FText GetFormatDescription() const override;
     virtual uint32 GetSerializerTypeId() const override;
+    virtual FSGDynamicTextAssetVersion GetFileFormatVersion() const override;
     virtual bool SerializeProvider(const ISGDynamicTextAssetProvider* Provider, FString& OutString) const override;
     virtual bool DeserializeProvider(const FString& InString, ISGDynamicTextAssetProvider* OutProvider, bool& bOutMigrated) const override;
     virtual bool ValidateStructure(const FString& InString, FString& OutErrorMessage) const override;
-    virtual bool ExtractMetadata(const FString& InString, FSGDynamicTextAssetId& OutId, FString& OutClassName, FString& OutUserFacingId, FString& OutVersion, FSGDynamicTextAssetTypeId& OutAssetTypeId) const override;
+    virtual bool ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const override;
     virtual bool UpdateFieldsInPlace(FString& InOutContents, const TMap<FString, FString>& FieldUpdates) const override;
     virtual FString GetDefaultFileContent(const UClass* DynamicTextAssetClass, const FSGDynamicTextAssetId& Id, const FString& UserFacingId) const override;
+    virtual bool ExtractSGDTAssetBundles(const FString& InString, FSGDynamicTextAssetBundleData& OutBundleData) const override;
+    virtual bool UpdateFileFormatVersion(FString& InOutFileContents, const FSGDynamicTextAssetVersion& NewVersion) const override;
+    virtual bool MigrateFileFormat(FString& InOutFileContents, const FSGDynamicTextAssetVersion& CurrentFormatVersion, const FSGDynamicTextAssetVersion& TargetFormatVersion) const override;
     // ~ISGDynamicTextAssetSerializer overrides
 };

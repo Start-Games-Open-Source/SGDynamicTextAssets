@@ -7,10 +7,6 @@
 #include "Serialization/BitWriter.h"
 #include "Serialization/BitReader.h"
 
-// ---------------------------------------------------------------------------
-// 1. Default State
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_DefaultState_IsInvalid,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.DefaultState.IsInvalid",
@@ -26,10 +22,6 @@ bool FTypeId_DefaultState_IsInvalid::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 2. NewGeneratedId — Valid
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_NewGeneratedId_IsValid,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.NewGeneratedId.IsValid",
@@ -43,10 +35,6 @@ bool FTypeId_NewGeneratedId_IsValid::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 3. NewGeneratedId — Unique
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_NewGeneratedId_ProducesUniqueIds,
@@ -65,10 +53,6 @@ bool FTypeId_NewGeneratedId_ProducesUniqueIds::RunTest(const FString& Parameters
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 4. FromGuid — Valid GUID
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_FromGuid_ValidGuid,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.FromGuid.ValidGuid",
@@ -85,10 +69,6 @@ bool FTypeId_FromGuid_ValidGuid::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 5. FromGuid — Invalid GUID
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_FromGuid_InvalidGuid,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.FromGuid.InvalidGuid",
@@ -104,10 +84,6 @@ bool FTypeId_FromGuid_InvalidGuid::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 6. FromString — Valid String
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_FromString_ValidString,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.FromString.ValidString",
@@ -121,10 +97,6 @@ bool FTypeId_FromString_ValidString::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 7. FromString — Invalid String
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_FromString_InvalidString,
@@ -141,10 +113,6 @@ bool FTypeId_FromString_InvalidString::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 8. ToString — Roundtrip
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_ToString_Roundtrip,
@@ -164,10 +132,6 @@ bool FTypeId_ToString_Roundtrip::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 9. Invalidate
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_Invalidate_BecomesInvalid,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.Invalidate.BecomesInvalid",
@@ -184,10 +148,6 @@ bool FTypeId_Invalidate_BecomesInvalid::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 10. Equality — Same GUID
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_Equality_SameGuid,
@@ -206,10 +166,6 @@ bool FTypeId_Equality_SameGuid::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 11. Equality — Different GUID
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_Equality_DifferentGuid,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.Equality.DifferentGuid",
@@ -226,10 +182,6 @@ bool FTypeId_Equality_DifferentGuid::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 12. Equality — Two Invalid Are Equal
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_Equality_TwoInvalidAreEqual,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.Equality.TwoInvalidAreEqual",
@@ -244,10 +196,6 @@ bool FTypeId_Equality_TwoInvalidAreEqual::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 13. Equality — TypeId vs Raw FGuid (cross-type operators)
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_Equality_TypeIdVsRawGuid,
@@ -271,10 +219,6 @@ bool FTypeId_Equality_TypeIdVsRawGuid::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 14. GetTypeHash — Consistent For Same Id
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_GetTypeHash_ConsistentForSameId,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.GetTypeHash.ConsistentForSameId",
@@ -293,10 +237,6 @@ bool FTypeId_GetTypeHash_ConsistentForSameId::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 15. GetTypeHash — Different For Different Ids
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_GetTypeHash_DifferentForDifferentIds,
@@ -327,10 +267,6 @@ bool FTypeId_GetTypeHash_DifferentForDifferentIds::RunTest(const FString& Parame
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 16. Serialize — Binary Roundtrip
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_Serialize_BinaryRoundtrip,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.Serialize.BinaryRoundtrip",
@@ -357,10 +293,6 @@ bool FTypeId_Serialize_BinaryRoundtrip::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 17. NetSerialize — Roundtrip
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_NetSerialize_Roundtrip,
 	"SGDynamicTextAssets.Runtime.Core.TypeId.NetSerialize.Roundtrip",
@@ -370,7 +302,7 @@ bool FTypeId_NetSerialize_Roundtrip::RunTest(const FString& Parameters)
 {
 	FSGDynamicTextAssetTypeId original = FSGDynamicTextAssetTypeId::NewGeneratedId();
 
-	// Write — FGuid is 16 bytes = 128 bits, allocate enough
+	// Write  - FGuid is 16 bytes = 128 bits, allocate enough
 	TArray<uint8> buffer;
 	buffer.SetNumZeroed(256);
 	FBitWriter writer(256 * 8);
@@ -390,10 +322,6 @@ bool FTypeId_NetSerialize_Roundtrip::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 18. ExportTextItem / ImportTextItem — Roundtrip
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_ExportImportTextItem_Roundtrip,
@@ -422,10 +350,6 @@ bool FTypeId_ExportImportTextItem_Roundtrip::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 19. INVALID_TYPE_ID — Static Constant
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeId_INVALID_TYPE_ID_IsInvalid,

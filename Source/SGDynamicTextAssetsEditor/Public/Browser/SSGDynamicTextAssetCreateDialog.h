@@ -115,7 +115,7 @@ private:
     /** Currently selected extension */
     TWeakPtr<FSGDynamicTextAssetSerializerMetadata> SelectedExtension = nullptr;
 
-    /** The Format row widget — visibility is set imperatively in BuildExtensionOptions */
+    /** The Format row widget  - visibility is set imperatively in BuildExtensionOptions */
     TSharedPtr<SWidget> ExtensionRow = nullptr;
 
     /** Entered name */

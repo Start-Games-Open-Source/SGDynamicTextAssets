@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 
 #include "Core/SGDynamicTextAssetTypeId.h"
+#include "Core/SGDynamicTextAssetVersion.h"
 
 /**
  * Metadata extracted from a dynamic text asset file header.
@@ -20,4 +21,6 @@ public:
     FString UserFacingId;
     FString ClassName;
     uint32 SerializerTypeId;
+    FSGDynamicTextAssetVersion Version;
+    FSGDynamicTextAssetVersion FileFormatVersion;
 };

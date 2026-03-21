@@ -43,7 +43,7 @@ namespace SGDynamicTextAssetsUhtPlugin
 			UhtClass? providerInterface = FindClassByName("ISGDynamicTextAssetProvider");
 			if (providerInterface == null)
 			{
-				// Module doesn't contain USGDynamicTextAssetProvider — nothing to validate
+				// Module doesn't contain USGDynamicTextAssetProvider  - nothing to validate
 				Session.AddMessage(new UhtMessage
 				{
 					MessageType = UhtMessageType.Info,
@@ -116,7 +116,7 @@ namespace SGDynamicTextAssetsUhtPlugin
 		/// <summary>
 		/// Recursively checks a property for hard reference types.
 		/// Emits LogError on the property for each violation found.
-		/// Check order matters — derived types must be checked before base types.
+		/// Check order matters  - derived types must be checked before base types.
 		/// </summary>
 		private void CheckPropertyForHardRef(UhtProperty property, string context)
 		{
@@ -138,7 +138,7 @@ namespace SGDynamicTextAssetsUhtPlugin
 				return;
 			}
 
-			// VIOLATION: TSubclassOf<> (UhtClassProperty inherits UhtObjectProperty — check first!)
+			// VIOLATION: TSubclassOf<> (UhtClassProperty inherits UhtObjectProperty  - check first!)
 			if (property is UhtClassProperty)
 			{
 				property.LogError(

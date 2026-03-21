@@ -96,10 +96,10 @@ public:
 	 *
 	 * Integer ID identifying which serializer produced the compressed payload.
 	 * Resolved at load time via FSGDynamicTextAssetFileManager::FindSerializerForTypeId().
-	 * Zero is invalid — all registered serializers must return a non-zero ID.
+	 * Zero is invalid  - all registered serializers must return a non-zero ID.
 	 *
 	 * Built-in IDs (reserved range 1–99):
-	 *   1 = JSON (.dta.json)  — see FSGDynamicTextAssetJsonSerializer::TYPE_ID
+	 *   1 = JSON (.dta.json)   - see FSGDynamicTextAssetJsonSerializer::TYPE_ID
 	 *
 	 * Third-party plugin serializers must use IDs >= 100 to avoid conflicts.
 	 * Duplicate ID registration is a fatal error caught at startup.

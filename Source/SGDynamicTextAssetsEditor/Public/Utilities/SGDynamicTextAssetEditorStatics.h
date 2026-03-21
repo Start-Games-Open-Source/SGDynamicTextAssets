@@ -3,16 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
 #include "Core/SGDynamicTextAssetId.h"
 #include "Framework/Docking/WorkspaceItem.h"
+
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "Templates/SubclassOf.h"
 
 #include "SGDynamicTextAssetEditorStatics.generated.h"
 
 class SWidget;
-
 class USGDynamicTextAsset;
 
 /**

@@ -34,6 +34,33 @@ public:
     /** Returns version as string in format "Major.Minor.Patch" */
     FString ToString() const;
 
+    /** Returns version as FText in format "Major.Minor.Patch" */
+    FText ToText() const;
+
+    /**
+     * Returns the major version within this struct.
+     *
+     * Intended for utility with delegates, callbacks, and edgecase approaches to writing code.
+     * Most other use cases will be fine with just directly getting the Major member variable of this struct.
+     */
+    int32 GetMajor() const;
+
+    /**
+     * Returns the minor version within this struct.
+     *
+     * Intended for utility with delegates, callbacks, and edgecase approaches to writing code.
+     * Most other use cases will be fine with just directly getting the Minor member variable of this struct.
+     */
+    int32 GetMinor() const;
+
+    /**
+     * Returns the patch version within this struct.
+     *
+     * Intended for utility with delegates, callbacks, and edgecase approaches to writing code.
+     * Most other use cases will be fine with just directly getting the Patch member variable of this struct.
+     */
+    int32 GetPatch() const;
+
     /** Parse version from string format "Major.Minor.Patch" */
     static FSGDynamicTextAssetVersion ParseFromString(const FString& VersionString);
 
@@ -42,6 +69,16 @@ public:
 
     /** Returns true if major versions match (compatible for loading) */
     bool IsCompatibleWith(const FSGDynamicTextAssetVersion& Other) const;
+
+    /**
+     * Returns true if this version falls within the given range (inclusive).
+     * Compares Major, Minor, and Patch components using standard ordering.
+     *
+     * @param Min The minimum version (inclusive).
+     * @param Max The maximum version (inclusive).
+     * @return True if Min <= this <= Max.
+     */
+    bool IsInRange(const FSGDynamicTextAssetVersion& Min, const FSGDynamicTextAssetVersion& Max) const;
 
     bool operator==(const FSGDynamicTextAssetVersion& Other) const;
     bool operator!=(const FSGDynamicTextAssetVersion& Other) const;

@@ -12,10 +12,6 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 namespace SGTypeManifestTestUtils
 {
 	/** Creates a TSoftClassPtr from a class path string. */
@@ -46,10 +42,6 @@ namespace SGTypeManifestTestUtils
 	}
 }
 
-// ---------------------------------------------------------------------------
-// 1. Default State
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_DefaultState_IsEmpty,
 	"SGDynamicTextAssets.Runtime.Management.TypeManifest.DefaultState.IsEmpty",
@@ -66,10 +58,6 @@ bool FTypeManifest_DefaultState_IsEmpty::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 2. AddType — Increases Count
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_AddType_IncreasesCount,
@@ -91,10 +79,6 @@ bool FTypeManifest_AddType_IncreasesCount::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 3. AddType — Replaces Existing
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_AddType_ReplacesExisting,
@@ -127,10 +111,6 @@ bool FTypeManifest_AddType_ReplacesExisting::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 4. RemoveType — Decreases Count
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_RemoveType_DecreasesCount,
 	"SGDynamicTextAssets.Runtime.Management.TypeManifest.RemoveType.DecreasesCount",
@@ -156,10 +136,6 @@ bool FTypeManifest_RemoveType_DecreasesCount::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 5. RemoveType — Not Found Returns False
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_RemoveType_NotFoundReturnsFalse,
 	"SGDynamicTextAssets.Runtime.Management.TypeManifest.RemoveType.NotFoundReturnsFalse",
@@ -176,10 +152,6 @@ bool FTypeManifest_RemoveType_NotFoundReturnsFalse::RunTest(const FString& Param
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 6. FindByTypeId — Found
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_FindByTypeId_Found,
@@ -207,10 +179,6 @@ bool FTypeManifest_FindByTypeId_Found::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 7. FindByTypeId — Not Found
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_FindByTypeId_NotFound,
 	"SGDynamicTextAssets.Runtime.Management.TypeManifest.FindByTypeId.NotFound",
@@ -227,10 +195,6 @@ bool FTypeManifest_FindByTypeId_NotFound::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 8. FindByClassName — Found
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_FindByClassName_Found,
@@ -257,10 +221,6 @@ bool FTypeManifest_FindByClassName_Found::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 9. FindByClassName — Not Found
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_FindByClassName_NotFound,
 	"SGDynamicTextAssets.Runtime.Management.TypeManifest.FindByClassName.NotFound",
@@ -275,10 +235,6 @@ bool FTypeManifest_FindByClassName_NotFound::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 10. Clear — Resets State
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_Clear_ResetsState,
@@ -306,10 +262,6 @@ bool FTypeManifest_Clear_ResetsState::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 11. SaveToFile / LoadFromFile — Roundtrip
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_SaveLoadFile_Roundtrip,
@@ -379,10 +331,6 @@ bool FTypeManifest_SaveLoadFile_Roundtrip::RunTest(const FString& Parameters)
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 12. SaveToFile — Schema and Version
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_SaveLoadFile_SchemaAndVersion,
 	"SGDynamicTextAssets.Runtime.Management.TypeManifest.SaveLoadFile.SchemaAndVersion",
@@ -431,10 +379,6 @@ bool FTypeManifest_SaveLoadFile_SchemaAndVersion::RunTest(const FString& Paramet
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 13. Server Overlay — Apply and Get Effective
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_ServerOverlay_ApplyAndGetEffective,
@@ -488,10 +432,6 @@ bool FTypeManifest_ServerOverlay_ApplyAndGetEffective::RunTest(const FString& Pa
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// 14. Server Overlay — Disable Entry
-// ---------------------------------------------------------------------------
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_ServerOverlay_DisableEntry,
 	"SGDynamicTextAssets.Runtime.Management.TypeManifest.ServerOverlay.DisableEntry",
@@ -524,10 +464,6 @@ bool FTypeManifest_ServerOverlay_DisableEntry::RunTest(const FString& Parameters
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 15. Server Overlay — Add New Entry
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_ServerOverlay_AddNewEntry,
@@ -578,10 +514,6 @@ bool FTypeManifest_ServerOverlay_AddNewEntry::RunTest(const FString& Parameters)
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 16. Server Overlay — Clear Restores Local
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_ServerOverlay_ClearRestoresLocal,
@@ -634,10 +566,6 @@ bool FTypeManifest_ServerOverlay_ClearRestoresLocal::RunTest(const FString& Para
 
 	return true;
 }
-
-// ---------------------------------------------------------------------------
-// 17. SetRootTypeId — Marks Dirty
-// ---------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FTypeManifest_SetRootTypeId_MarksDirty,

@@ -9,7 +9,7 @@
 #pragma pack(push, 1)
 /**
  * Header structure for the binary cook manifest file (dta_manifest.bin).
- * Fixed 32-byte header for quick validation and metadata access.
+ * Fixed 32-byte header for quick validation and file info access.
  *
  * The binary manifest maps dynamic text asset IDs to class names and
  * user-facing IDs using a compact binary format with a string table

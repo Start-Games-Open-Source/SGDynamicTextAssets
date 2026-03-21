@@ -28,6 +28,19 @@ public:
 	/** Gets the singleton settings instance. */
 	static USGDynamicTextAssetEditorSettings* Get();
 
+	/** Returns the root folder path where cache files and folders are stored relative to the project's Saved folder. */
+	FString GetCacheRootFolder() const;
+
+	/**
+	 * The folder path where cache files and folders are stored.
+	 * Relative to the project's Saved folder.
+	 *
+	 * IE:
+	 * [SAVED FOLDER]/CacheRootFolderPath
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Cache")
+	FString CacheRootFolderPath = TEXT("SGDynamicTextAssets");
+
 	/**
 	 * Whether to scan Engine content for dynamic text asset references.
 	 * Engine Blueprints and Levels rarely reference game dynamic text assets,
@@ -46,7 +59,20 @@ public:
 	/**
 	 * The folder path where reference cache files are stored.
 	 * Relative to the project's Saved folder.
+	 *
+	 * IE:
+	 * [SAVED FOLDER]/[ROOT CACHE FOLDER]/ReferenceCacheFolderPath
 	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Reference Scanning", AdvancedDisplay)
-	FString ReferenceCacheFolderPath = TEXT("SGDynamicTextAssets/ReferenceCache");
+	FString ReferenceCacheFolderPath = TEXT("ReferenceCache");
+
+	/**
+	 * Whether to display asset bundle icons next to soft reference properties
+	 * that have meta=(AssetBundles="...") tags in the DTA editor details panel.
+	 *
+	 * *NOTE*
+	 * You will have to close and reopen the open DTA's your editing to see the change applied.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Editor Display")
+	uint8 bShowAssetBundleIcons : 1 = 1;
 };

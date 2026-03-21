@@ -10,14 +10,14 @@
 #include "UObject/Package.h"
 #include "Management/SGDynamicTextAssetCookManifest.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
 
-// Direct JSON includes are intentional for ExtractMetadataFromFile fallback paths only.
+// Direct JSON includes are intentional for ExtractFileInfoFromFile fallback paths only.
 // These are last-resort parsers for files whose registered serializer is no longer available.
 // All other JSON operations are routed through ISGDynamicTextAssetSerializer::UpdateFieldsInPlace
-// or ISGDynamicTextAssetSerializer::ExtractMetadata on the registered serializer instance.
+// or ISGDynamicTextAssetSerializer::ExtractFileInfo on the registered serializer instance.
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -269,13 +269,13 @@ FString FSGDynamicTextAssetFileManager::SanitizeUserFacingId(const FString& User
     return result;
 }
 
-FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(const FString& FilePath)
+FSGDynamicTextAssetFileInfo FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(const FString& FilePath)
 {
-    FSGDynamicTextAssetFileMetadata metadata;
+    FSGDynamicTextAssetFileInfo fileInfo;
 
     if (FilePath.IsEmpty() || !IsDynamicTextAssetFile(FilePath))
     {
-        return metadata;
+        return fileInfo;
     }
 
     // Binary files: extract ID from header without decompression
@@ -285,7 +285,7 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
         if (!FSGDynamicTextAssetBinarySerializer::ReadBinaryFile(FilePath, binaryData))
         {
             UE_LOG(LogSGDynamicTextAssetsRuntime, Warning, TEXT("Failed to read binary file at FilePath(%s)"), *FilePath);
-            return metadata;
+            return fileInfo;
         }
 
         // Read header (80 bytes, no decompression)
@@ -293,15 +293,15 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
         if (!FSGDynamicTextAssetBinarySerializer::ReadHeader(binaryData, header))
         {
             UE_LOG(LogSGDynamicTextAssetsRuntime, Warning, TEXT("Failed to read header from binary file at FilePath(%s)"), *FilePath);
-            return metadata;
+            return fileInfo;
         }
 
-        metadata.Id = header.Guid;
+        fileInfo.Id = header.Guid;
 
         // Extract AssetTypeId directly from header (no decompression needed)
         if (header.HasAssetTypeGuid())
         {
-            metadata.AssetTypeId = FSGDynamicTextAssetTypeId::FromGuid(header.AssetTypeGuid);
+            fileInfo.AssetTypeId = FSGDynamicTextAssetTypeId::FromGuid(header.AssetTypeGuid);
         }
 
         // In cooked builds, look up ClassName + UserFacingId from manifest (no decompression)
@@ -310,26 +310,26 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
             const FSGDynamicTextAssetCookManifest* manifest = GetCookManifest();
             if (manifest != nullptr)
             {
-                const FSGDynamicTextAssetCookManifestEntry* entry = manifest->FindById(metadata.Id);
+                const FSGDynamicTextAssetCookManifestEntry* entry = manifest->FindById(fileInfo.Id);
                 if (entry != nullptr)
                 {
-                    metadata.ClassName = entry->ClassName;
-                    metadata.UserFacingId = entry->UserFacingId;
+                    fileInfo.ClassName = entry->ClassName;
+                    fileInfo.UserFacingId = entry->UserFacingId;
 
                     // If AssetTypeId not available from header, derive from ClassName via registry
-                    if (!metadata.AssetTypeId.IsValid())
+                    if (!fileInfo.AssetTypeId.IsValid())
                     {
                         if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
                         {
                             if (const UClass* resolvedClass = FindFirstObject<UClass>(*entry->ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous))
                             {
-                                metadata.AssetTypeId = registry->GetTypeIdForClass(resolvedClass);
+                                fileInfo.AssetTypeId = registry->GetTypeIdForClass(resolvedClass);
                             }
                         }
                     }
 
-                    metadata.bIsValid = metadata.Id.IsValid();
-                    return metadata;
+                    fileInfo.bIsValid = fileInfo.Id.IsValid();
+                    return fileInfo;
                 }
             }
         }
@@ -348,8 +348,16 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
 
             if (payloadSerializer.IsValid())
             {
-                FString version;
-                payloadSerializer->ExtractMetadata(payloadString, metadata.Id, metadata.ClassName, metadata.UserFacingId, version, metadata.AssetTypeId);
+                FSGDynamicTextAssetFileInfo extractedFileInfo;
+                if (payloadSerializer->ExtractFileInfo(payloadString, extractedFileInfo))
+                {
+                    fileInfo.Id = extractedFileInfo.Id;
+                    fileInfo.ClassName = extractedFileInfo.ClassName;
+                    fileInfo.UserFacingId = extractedFileInfo.UserFacingId;
+                    fileInfo.AssetTypeId = extractedFileInfo.AssetTypeId;
+                    fileInfo.Version = extractedFileInfo.Version;
+                    fileInfo.FileFormatVersion = extractedFileInfo.FileFormatVersion;
+                }
             }
             else
             {
@@ -361,48 +369,45 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
                 TSharedRef<TJsonReader<>> reader = TJsonReaderFactory<>::Create(payloadString);
                 if (FJsonSerializer::Deserialize(reader, jsonObject) && jsonObject.IsValid())
                 {
-                    jsonObject->TryGetStringField(TEXT("$type"), metadata.ClassName);
-                    jsonObject->TryGetStringField(ISGDynamicTextAssetSerializer::KEY_USER_FACING_ID, metadata.UserFacingId);
+                    jsonObject->TryGetStringField(TEXT("$type"), fileInfo.ClassName);
+                    jsonObject->TryGetStringField(ISGDynamicTextAssetSerializer::KEY_USER_FACING_ID, fileInfo.UserFacingId);
                 }
             }
         }
 
-        if (metadata.UserFacingId.IsEmpty())
+        if (fileInfo.UserFacingId.IsEmpty())
         {
-            metadata.UserFacingId = ExtractUserFacingIdFromPath(FilePath);
+            fileInfo.UserFacingId = ExtractUserFacingIdFromPath(FilePath);
         }
 
-        metadata.bIsValid = metadata.Id.IsValid();
-        return metadata;
+        fileInfo.bIsValid = fileInfo.Id.IsValid();
+        return fileInfo;
     }
 
     // Non-binary files: dispatch through serializer registry
     FString fileContents;
     if (!ReadRawFileContents(FilePath, fileContents))
     {
-        return metadata;
+        return fileInfo;
     }
 
     // Try registry dispatch first
     TSharedPtr<ISGDynamicTextAssetSerializer> serializer = FindSerializerForFile(FilePath);
     if (serializer.IsValid())
     {
-        FString className;
-        FString userFacingId;
-        FString version;
-        if (serializer->ExtractMetadata(fileContents, metadata.Id, className, userFacingId, version, metadata.AssetTypeId))
+        FSGDynamicTextAssetFileInfo extractedFileInfo;
+        if (serializer->ExtractFileInfo(fileContents, extractedFileInfo))
         {
-            metadata.ClassName = className;
-            metadata.UserFacingId = userFacingId;
+            fileInfo = extractedFileInfo;
 
-            if (metadata.UserFacingId.IsEmpty())
+            if (fileInfo.UserFacingId.IsEmpty())
             {
-                metadata.UserFacingId = ExtractUserFacingIdFromPath(FilePath);
+                fileInfo.UserFacingId = ExtractUserFacingIdFromPath(FilePath);
             }
 
-            metadata.SerializerTypeId = serializer->GetSerializerTypeId();
-            metadata.bIsValid = metadata.Id.IsValid();
-            return metadata;
+            fileInfo.SerializerTypeId = serializer->GetSerializerTypeId();
+            fileInfo.bIsValid = fileInfo.Id.IsValid();
+            return fileInfo;
         }
     }
 
@@ -416,31 +421,31 @@ FSGDynamicTextAssetFileMetadata FSGDynamicTextAssetFileManager::ExtractMetadataF
     if (!FJsonSerializer::Deserialize(reader, jsonObject) || !jsonObject.IsValid())
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Warning, TEXT("Failed to parse JSON from FilePath(%s)"), *FilePath);
-        return metadata;
+        return fileInfo;
     }
 
-    metadata.SerializerTypeId = FSGDynamicTextAssetJsonSerializer::TYPE_ID;
+    fileInfo.SerializerTypeId = FSGDynamicTextAssetJsonSerializer::TYPE_ID;
 
     // Extract ID (serializer writes "$id")
     FString idString;
     if (jsonObject->TryGetStringField(ISGDynamicTextAssetSerializer::KEY_ID, idString))
     {
-        metadata.Id.ParseString(idString);
+        fileInfo.Id.ParseString(idString);
     }
 
     // Extract UserFacingId from JSON, fall back to filename
-    jsonObject->TryGetStringField(ISGDynamicTextAssetSerializer::KEY_USER_FACING_ID, metadata.UserFacingId);
+    jsonObject->TryGetStringField(ISGDynamicTextAssetSerializer::KEY_USER_FACING_ID, fileInfo.UserFacingId);
 
-    if (metadata.UserFacingId.IsEmpty())
+    if (fileInfo.UserFacingId.IsEmpty())
     {
-        metadata.UserFacingId = ExtractUserFacingIdFromPath(FilePath);
+        fileInfo.UserFacingId = ExtractUserFacingIdFromPath(FilePath);
     }
 
     // Extract ClassName (serializer writes "$type")
-    jsonObject->TryGetStringField(TEXT("$type"), metadata.ClassName);
+    jsonObject->TryGetStringField(TEXT("$type"), fileInfo.ClassName);
 
-    metadata.bIsValid = metadata.Id.IsValid();
-    return metadata;
+    fileInfo.bIsValid = fileInfo.Id.IsValid();
+    return fileInfo;
 }
 
 bool FSGDynamicTextAssetFileManager::EnsureFolderExistsForClass(const UClass* DynamicTextAssetClass)
@@ -561,7 +566,7 @@ bool FSGDynamicTextAssetFileManager::ReadRawFileContents(const FString& FilePath
         return true;
     }
 
-    // JSON / text files are read directly — TypeId stays 0 (non-binary)
+    // JSON / text files are read directly  - TypeId stays 0 (non-binary)
     if (!FFileHelper::LoadFileToString(OutContents, *FilePath))
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::ReadRawFileContents: Failed to read file at FilePath(%s)"), *FilePath);
@@ -619,7 +624,7 @@ bool FSGDynamicTextAssetFileManager::CreateDynamicTextAssetFile(const UClass* Dy
         return false;
     }
 
-    // Look up the registered serializer for this extension — fail early if none registered
+    // Look up the registered serializer for this extension  - fail early if none registered
     TSharedPtr<ISGDynamicTextAssetSerializer> serializer = FindSerializerForExtension(Extension);
     if (!serializer.IsValid())
     {
@@ -722,26 +727,26 @@ bool FSGDynamicTextAssetFileManager::RenameDynamicTextAsset(const FString& Sourc
         return false;
     }
 
-    // Extract metadata to get class info
-    FSGDynamicTextAssetFileMetadata metadata = ExtractMetadataFromFile(SourceFilePath);
-    if (!metadata.bIsValid)
+    // Extract file information to get class info
+    FSGDynamicTextAssetFileInfo fileInfo = ExtractFileInfoFromFile(SourceFilePath);
+    if (!fileInfo.bIsValid)
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Failed to extract metadata from source file"));
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Failed to extract file info from source file"));
         return false;
     }
 
-    // Find the class from metadata
-    UClass* dataObjectClass = FindFirstObject<UClass>(*metadata.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
+    // Find the class from file info
+    UClass* dataObjectClass = FindFirstObject<UClass>(*fileInfo.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
     if (!dataObjectClass)
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Could not find ClassName(%s)"), *metadata.ClassName);
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Could not find ClassName(%s)"), *fileInfo.ClassName);
         return false;
     }
 
     // Validate resolved class is a USGDynamicTextAssetProvider subclass to prevent class confusion
     if (!dataObjectClass->ImplementsInterface(USGDynamicTextAssetProvider::StaticClass()))
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Resolved ClassName(%s) does not implement ISGDynamicTextAssetProvider interface"), *metadata.ClassName);
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Resolved ClassName(%s) does not implement ISGDynamicTextAssetProvider interface"), *fileInfo.ClassName);
         return false;
     }
 
@@ -795,7 +800,7 @@ bool FSGDynamicTextAssetFileManager::RenameDynamicTextAsset(const FString& Sourc
     }
 
     UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("FSGDynamicTextAssetFileManager::Renamed dynamic text asset: UserFacingId(%s) -> NewUserFacingId(%s)|(FilePath(%s)"),
-        *metadata.UserFacingId, *NewUserFacingId, *OutNewFilePath);
+        *fileInfo.UserFacingId, *NewUserFacingId, *OutNewFilePath);
 
     return true;
 }
@@ -825,11 +830,11 @@ bool FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset(const FString& So
         return false;
     }
 
-    // Extract metadata to get class info
-    FSGDynamicTextAssetFileMetadata metadata = ExtractMetadataFromFile(SourceFilePath);
-    if (!metadata.bIsValid)
+    // Extract file information to get class info
+    FSGDynamicTextAssetFileInfo fileInfo = ExtractFileInfoFromFile(SourceFilePath);
+    if (!fileInfo.bIsValid)
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset: Failed to extract metadata from source file"));
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset: Failed to extract file info from source file"));
         return false;
     }
 
@@ -837,19 +842,19 @@ bool FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset(const FString& So
     UClass* dataObjectClass = nullptr;
     if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
     {
-        if (metadata.AssetTypeId.IsValid())
+        if (fileInfo.AssetTypeId.IsValid())
         {
-            dataObjectClass = registry->ResolveClassForTypeId(metadata.AssetTypeId);
+            dataObjectClass = registry->ResolveClassForTypeId(fileInfo.AssetTypeId);
         }
 
         // Fallback: resolve by class name for legacy files without a valid Asset Type ID
-        if (!dataObjectClass && !metadata.ClassName.IsEmpty())
+        if (!dataObjectClass && !fileInfo.ClassName.IsEmpty())
         {
             TArray<UClass*> allClasses;
             registry->GetAllInstantiableClasses(allClasses);
             for (UClass* registeredClass : allClasses)
             {
-                if (registeredClass && registeredClass->GetName() == metadata.ClassName)
+                if (registeredClass && registeredClass->GetName() == fileInfo.ClassName)
                 {
                     dataObjectClass = registeredClass;
                     break;
@@ -862,7 +867,7 @@ bool FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset(const FString& So
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
             TEXT("FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset: Failed to resolve class for AssetTypeId '%s' (ClassName '%s')"),
-            *metadata.AssetTypeId.ToString(), *metadata.ClassName);
+            *fileInfo.AssetTypeId.ToString(), *fileInfo.ClassName);
         return false;
     }
 
@@ -907,7 +912,7 @@ bool FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset(const FString& So
     }
 
     UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("FSGDynamicTextAssetFileManager::Duplicated dynamic text asset: UserFacingId(%s) -> NewUserFacingId(%s) | (NewID(%s))"),
-        *metadata.UserFacingId, *NewUserFacingId, *OutNewId.ToString());
+        *fileInfo.UserFacingId, *NewUserFacingId, *OutNewId.ToString());
 
     return true;
 }
@@ -961,11 +966,11 @@ bool FSGDynamicTextAssetFileManager::ConvertFileFormat(const FString& SourceFile
         return false;
     }
 
-    // Extract metadata to resolve the class
-    FSGDynamicTextAssetFileMetadata metadata = ExtractMetadataFromFile(SourceFilePath);
-    if (!metadata.bIsValid)
+    // Extract file information to resolve the class
+    FSGDynamicTextAssetFileInfo fileInfo = ExtractFileInfoFromFile(SourceFilePath);
+    if (!fileInfo.bIsValid)
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::ConvertFileFormat: Failed to extract metadata from SourceFilePath(%s)"), *SourceFilePath);
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::ConvertFileFormat: Failed to extract file info from SourceFilePath(%s)"), *SourceFilePath);
         return false;
     }
 
@@ -973,19 +978,19 @@ bool FSGDynamicTextAssetFileManager::ConvertFileFormat(const FString& SourceFile
     UClass* dataObjectClass = nullptr;
     if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
     {
-        if (metadata.AssetTypeId.IsValid())
+        if (fileInfo.AssetTypeId.IsValid())
         {
-            dataObjectClass = registry->ResolveClassForTypeId(metadata.AssetTypeId);
+            dataObjectClass = registry->ResolveClassForTypeId(fileInfo.AssetTypeId);
         }
 
         // Fallback: resolve by class name for legacy files without a valid Asset Type ID
-        if (!dataObjectClass && !metadata.ClassName.IsEmpty())
+        if (!dataObjectClass && !fileInfo.ClassName.IsEmpty())
         {
             TArray<UClass*> allClasses;
             registry->GetAllInstantiableClasses(allClasses);
             for (UClass* registeredClass : allClasses)
             {
-                if (registeredClass && registeredClass->GetName() == metadata.ClassName)
+                if (registeredClass && registeredClass->GetName() == fileInfo.ClassName)
                 {
                     dataObjectClass = registeredClass;
                     break;
@@ -998,7 +1003,7 @@ bool FSGDynamicTextAssetFileManager::ConvertFileFormat(const FString& SourceFile
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
             TEXT("FSGDynamicTextAssetFileManager::ConvertFileFormat: Failed to resolve class for AssetTypeId '%s' (ClassName '%s')"),
-            *metadata.AssetTypeId.ToString(), *metadata.ClassName);
+            *fileInfo.AssetTypeId.ToString(), *fileInfo.ClassName);
         return false;
     }
 
@@ -1043,7 +1048,7 @@ bool FSGDynamicTextAssetFileManager::ConvertFileFormat(const FString& SourceFile
     }
 
     // 5. Build the new file path: same folder and UserFacingId, new extension
-    OutNewFilePath = BuildFilePath(dataObjectClass, metadata.UserFacingId, TargetExtension);
+    OutNewFilePath = BuildFilePath(dataObjectClass, fileInfo.UserFacingId, TargetExtension);
 
     // Check if the target file already exists
     if (FileExists(OutNewFilePath))
@@ -1071,7 +1076,7 @@ bool FSGDynamicTextAssetFileManager::ConvertFileFormat(const FString& SourceFile
 
     UE_LOG(LogSGDynamicTextAssetsRuntime, Log,
         TEXT("FSGDynamicTextAssetFileManager::ConvertFileFormat: Converted '%s' from %s to %s -> FilePath(%s)"),
-        *metadata.UserFacingId, *sourceSerializer->GetFormatName_String(), *targetSerializer->GetFormatName_String(), *OutNewFilePath);
+        *fileInfo.UserFacingId, *sourceSerializer->GetFormatName_String(), *targetSerializer->GetFormatName_String(), *OutNewFilePath);
 
     return true;
 }
@@ -1122,8 +1127,8 @@ bool FSGDynamicTextAssetFileManager::FindFileForId(const FSGDynamicTextAssetId& 
 
     for (const FString& filePath : filePaths)
     {
-        FSGDynamicTextAssetFileMetadata metadata = ExtractMetadataFromFile(filePath);
-        if (metadata.bIsValid && metadata.Id == Id)
+        FSGDynamicTextAssetFileInfo fileInfo = ExtractFileInfoFromFile(filePath);
+        if (fileInfo.bIsValid && fileInfo.Id == Id)
         {
             OutFilePath = filePath;
             return true;

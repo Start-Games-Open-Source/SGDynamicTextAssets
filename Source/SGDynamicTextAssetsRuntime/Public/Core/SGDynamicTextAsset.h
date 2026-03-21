@@ -20,7 +20,7 @@
  *
  * Key characteristics:
  * - Read-only at runtime (constant data)
- * - Soft references only (no hard references or asset bundles)
+ * - Soft references only (no hard references), with asset bundle support via meta=(AssetBundles="...")
  * - Runtime classes defined in C++ only (usable in Blueprints)
  *
  * Subclasses should:
@@ -76,6 +76,9 @@ public:
         const FSGDynamicTextAssetVersion& OldVersion,
         const FSGDynamicTextAssetVersion& CurrentVersion,
         const TSharedPtr<FJsonObject>& OldData) override;
+    virtual const FSGDynamicTextAssetBundleData& GetSGDTAssetBundleData() const override;
+    virtual FSGDynamicTextAssetBundleData& GetMutableSGDTAssetBundleData() override;
+    virtual bool HasSGDTAssetBundles() const override;
     // ~ISGDynamicTextAssetProvider interface
 
     /** Returns the version as a formatted string */
@@ -92,15 +95,6 @@ public:
     static TSet<FName> GetMetadataPropertyNames();
 
 protected:
-
-    /**
-     * Handles validating soft paths (soft objects and soft classes) properties on this dynamic text asset
-     * with the goal of confirming if they are pointing to a real asset and the path isn't invalid.
-     */
-    void ValidateSoftPathsInProperty(const FProperty* Property,
-        const void* ContainerPtr,
-        const FString& PropertyPath,
-        FSGDynamicTextAssetValidationResult& OutResult) const;
 
     /**
      * Called after this dynamic text asset's properties have been populated from JSON.
@@ -134,4 +128,8 @@ private:
     /** Semantic version of this dynamic text asset instance */
     UPROPERTY(VisibleAnywhere, Category = "Dynamic Text Asset|Identity", meta = (AllowPrivateAccess = "true"))
     FSGDynamicTextAssetVersion Version;
+
+    /** Asset bundle data extracted from soft reference properties with AssetBundles metadata. */
+    UPROPERTY(Transient)
+    FSGDynamicTextAssetBundleData SGDTAssetBundleData;
 };

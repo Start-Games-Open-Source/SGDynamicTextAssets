@@ -12,6 +12,26 @@ FString FSGDynamicTextAssetVersion::ToString() const
 	return FString::Printf(TEXT("%d.%d.%d"), Major, Minor, Patch);
 }
 
+FText FSGDynamicTextAssetVersion::ToText() const
+{
+	return FText::Format(INVTEXT("{0}.{1}.{2}"), Major, Minor, Patch);
+}
+
+int32 FSGDynamicTextAssetVersion::GetMajor() const
+{
+	return Major;
+}
+
+int32 FSGDynamicTextAssetVersion::GetMinor() const
+{
+	return Minor;
+}
+
+int32 FSGDynamicTextAssetVersion::GetPatch() const
+{
+	return Patch;
+}
+
 FSGDynamicTextAssetVersion FSGDynamicTextAssetVersion::ParseFromString(const FString& VersionString)
 {
 	FSGDynamicTextAssetVersion result;
@@ -65,6 +85,11 @@ bool FSGDynamicTextAssetVersion::ParseString(const FString& VersionString)
 bool FSGDynamicTextAssetVersion::IsCompatibleWith(const FSGDynamicTextAssetVersion& Other) const
 {
 	return Major == Other.Major;
+}
+
+bool FSGDynamicTextAssetVersion::IsInRange(const FSGDynamicTextAssetVersion& Min, const FSGDynamicTextAssetVersion& Max) const
+{
+	return *this >= Min && *this <= Max;
 }
 
 bool FSGDynamicTextAssetVersion::operator==(const FSGDynamicTextAssetVersion& Other) const

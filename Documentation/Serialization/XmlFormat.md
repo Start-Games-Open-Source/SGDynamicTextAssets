@@ -19,12 +19,13 @@ Every `.dta.xml` file follows this structure:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <DynamicTextAsset>
-    <metadata>
+    <sgFileInformation>
         <type>UWeaponData</type>
         <version>1.0.0</version>
         <id>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</id>
         <userfacingid>excalibur</userfacingid>
-    </metadata>
+        <fileFormatVersion>1.0.0</fileFormatVersion>
+    </sgFileInformation>
     <data>
         <DisplayName>Excalibur</DisplayName>
         <BaseDamage>50.0</BaseDamage>
@@ -36,18 +37,19 @@ Every `.dta.xml` file follows this structure:
 
 ### Root Element
 
-The root element is always `<DynamicTextAsset>`. It contains exactly two child elements: `<metadata>` and `<data>`.
+The root element is always `<DynamicTextAsset>`. It contains exactly two child elements: `<sgFileInformation>` and `<data>`.
 
 ### Metadata Block
 
-The `<metadata>` element contains four child elements with the same keys used across all serializer formats:
+The `<sgFileInformation>` element contains four child elements with the same keys used across all serializer formats:
 
 | Element | Description |
 |---------|-------------|
-| `<type>` | The UClass name including prefix (e.g., `UWeaponData`) |
+| `<type>` | The `FSGDynamicTextAssetTypeId` GUID when available (preferred), or the UClass name including prefix as a fallback (e.g., `UWeaponData`) |
 | `<version>` | Semantic version in `Major.Minor.Patch` format |
 | `<id>` | The unique identifier in standard GUID format |
 | `<userfacingid>` | Human-readable identifier for display and lookups |
+| `<fileFormatVersion>` | Serializer format structural version in `Major.Minor.Patch` format. Defaults to `1.0.0` if absent. Written automatically on save. |
 
 ### Data Section
 
@@ -128,8 +130,8 @@ All methods are inherited from `ISGDynamicTextAssetSerializer`. See [SerializerI
 |--------|-------------|
 | `SerializeProvider` | Converts a provider's properties to formatted XML with 4-space indentation (UTF-8) |
 | `DeserializeProvider` | Parses XML via `FXmlFile`, reconstructs `FJsonObject` tree from XML elements, then populates UPROPERTY fields via reflection |
-| `ValidateStructure` | Validates that an XML string parses correctly and has the required structure (`<DynamicTextAsset>` root with `<metadata>` and `<data>` children) |
-| `ExtractMetadata` | Extracts all four metadata fields from the `<metadata>` element without full deserialization |
+| `ValidateStructure` | Validates that an XML string parses correctly and has the required structure (`<DynamicTextAsset>` root with `<sgFileInformation>` and `<data>` children) |
+| `ExtractFileInfo` | Extracts all four file information fields from the `<sgFileInformation>` element without full deserialization |
 | `UpdateFieldsInPlace` | Updates metadata fields within an already-serialized XML string in-place |
 | `GetDefaultFileContent` | Generates the initial XML file content for a new dynamic text asset |
 | `GetSerializerTypeId` | Returns `2` |
@@ -143,6 +145,44 @@ FSGDynamicTextAssetFileManager::RegisterSerializer<FSGDynamicTextAssetXmlSeriali
 ```
 
 See [SerializerInterface.md](SerializerInterface.md) for the full registration pattern.
+
+## Asset Bundle Metadata
+
+When a dynamic text asset has soft reference properties tagged with `meta=(AssetBundles="...")`, the serializer writes an `<sgdtAssetBundles>` element at the root level alongside `<sgFileInformation>` and `<data>`. This element is a snapshot of the bundle data extracted from the object's UPROPERTY meta tags.
+
+### Format
+
+Each bundle is represented as a `<bundle>` element with a `name` attribute. Entries within a bundle are `<entry>` elements with `property` and `path` attributes.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<DynamicTextAsset>
+    <sgFileInformation> ... </sgFileInformation>
+    <data> ... </data>
+    <sgdtAssetBundles>
+        <bundle name="Visual">
+            <entry property="UWeaponData.MeshAsset" path="/Game/Weapons/Meshes/Sword.Sword"/>
+            <entry property="UWeaponData.ImpactMaterial" path="/Game/Weapons/Materials/ImpactMat.ImpactMat"/>
+        </bundle>
+        <bundle name="Audio">
+            <entry property="UWeaponData.ImpactMaterial" path="/Game/Weapons/Materials/ImpactMat.ImpactMat"/>
+            <entry property="UWeaponData.FireSound" path="/Game/Audio/Weapons/FireSFX.FireSFX"/>
+        </bundle>
+    </sgdtAssetBundles>
+</DynamicTextAsset>
+```
+
+### Behavior
+
+- The `<sgdtAssetBundles>` element is only written if the object has at least one bundled soft reference with a valid (non-null) path.
+- Properties tagged with multiple bundles (e.g., `meta=(AssetBundles="Visual,Audio")`) appear in each named bundle.
+- Properties without the `AssetBundles` meta tag are not included.
+- Container properties (`TArray`, `TMap`, `TSet`) tagged with `AssetBundles` propagate their bundle names to inner soft reference elements.
+- During deserialization in **editor builds**, the `<sgdtAssetBundles>` element is informational only - bundle data is re-extracted from UPROPERTY meta tags after properties are populated. In **packaged builds**, this element is the primary source since property metadata is stripped.
+
+### Extraction Without Full Deserialization
+
+The `ExtractSGDTAssetBundles()` method on the serializer can parse the `<sgdtAssetBundles>` element from an XML string without deserializing the full object. This is useful for cook pipelines and editor tooling.
 
 ## Instanced Object Serialization
 

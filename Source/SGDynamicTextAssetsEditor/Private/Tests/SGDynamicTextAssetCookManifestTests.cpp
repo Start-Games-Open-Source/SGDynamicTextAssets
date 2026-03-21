@@ -164,7 +164,7 @@ bool FSGDynamicTextAssetCookManifest_LoadFromFileBinary_RejectsTamperedFile::Run
 
 	saveManifest.SaveToFileBinary(testDir);
 
-	// Tamper with the binary file — flip a byte in the entries section (after the 32-byte header)
+	// Tamper with the binary file  - flip a byte in the entries section (after the 32-byte header)
 	FString filePath = FPaths::Combine(testDir,
 		FSGDynamicTextAssetCookManifestBinaryHeader::BINARY_MANIFEST_FILENAME);
 	TArray<uint8> fileData;
@@ -178,7 +178,7 @@ bool FSGDynamicTextAssetCookManifest_LoadFromFileBinary_RejectsTamperedFile::Run
 		FFileHelper::SaveArrayToFile(fileData, *filePath);
 	}
 
-	// Try to load — should fail due to hash mismatch
+	// Try to load  - should fail due to hash mismatch
 	FSGDynamicTextAssetCookManifest loadManifest;
 	AddExpectedError(TEXT("Content hash mismatch"), EAutomationExpectedErrorFlags::Contains, 1);
 	bool bLoaded = loadManifest.LoadFromFileBinary(testDir);
@@ -329,7 +329,7 @@ bool FSGDynamicTextAssetCookManifest_LargeManifest_StressTest::RunTest(const FSt
 }
 
 /**
- * Test: Content hash is deterministic — same entries produce byte-identical files
+ * Test: Content hash is deterministic  - same entries produce byte-identical files
  */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FSGDynamicTextAssetCookManifest_ContentHash_Deterministic,

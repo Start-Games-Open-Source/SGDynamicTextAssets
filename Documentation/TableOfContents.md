@@ -10,6 +10,7 @@
 - [Dynamic Text Assets](Core/DynamicTextAssets.md): USGDynamicTextAsset base class, GUIDs, UserFacingId, versioning
 - [Dynamic Text Asset References](Core/DynamicTextAssetReferences.md): FSGDynamicTextAssetRef, resolving, type filters
 - [Versioning and Migration](Core/VersioningAndMigration.md): Semantic versioning, MigrateFromVersion, compatibility
+- [Asset Bundles](Core/AssetBundles.md): Named bundle groups, property tagging, extraction, runtime loading
 - [Validation](Core/Validation.md): FSGDynamicTextAssetValidationResult, custom validation hooks, severity levels
 - [UHT Plugin](Core/UhtPlugin.md): Compile-time validation plugin setup, file structure, distribution
 

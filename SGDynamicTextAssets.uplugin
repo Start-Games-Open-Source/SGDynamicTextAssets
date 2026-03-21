@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
   "Version": 2,
-  "VersionName": "1.1.0",
+  "VersionName": "1.2.0",
   "FriendlyName": "SG Dynamic Text Assets",
   "Description": "Dynamic text asset configuration system for static game data using text assets. Provides external file storage similar to Primary Data Assets with runtime loading, editor tooling, and server integration.",
   "Category": "Start Games",

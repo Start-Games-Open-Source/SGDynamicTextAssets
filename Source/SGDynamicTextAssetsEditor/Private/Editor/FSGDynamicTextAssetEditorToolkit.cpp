@@ -3,17 +3,19 @@
 #include "Editor/FSGDynamicTextAssetEditorToolkit.h"
 
 #include "Browser/SSGDynamicTextAssetBrowser.h"
+#include "SGDynamicTextAssetScanSubsystem.h"
 #include "Core/ISGDynamicTextAssetProvider.h"
 #include "Core/SGDynamicTextAssetTypeId.h"
 #include "Core/SGDynamicTextAssetValidationResult.h"
 #include "Editor.h"
+#include "Editor/SGDynamicTextAssetBundleRowExtension.h"
 #include "Editor/SGDynamicTextAssetEditorCommands.h"
 #include "Editor/SSGDynamicTextAssetRawView.h"
 #include "Framework/Docking/TabManager.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Misc/MessageDialog.h"
 #include "Modules/ModuleManager.h"
@@ -22,6 +24,7 @@
 #include "Serialization/SGDynamicTextAssetJsonSerializer.h"
 #include "SGDynamicTextAssetEditorLogs.h"
 #include "SourceCodeNavigation.h"
+#include "Statics/SGDynamicTextAssetStatics.h"
 #include "Styling/AppStyle.h"
 #include "UObject/Package.h"
 #include "Utilities/SGDynamicTextAssetSourceControl.h"
@@ -123,43 +126,64 @@ void FSGDynamicTextAssetEditorToolkit::PostRegenerateMenusAndToolbars()
     TSharedPtr<ISGDynamicTextAssetSerializer> serializer = FSGDynamicTextAssetFileManager::FindSerializerForFile(FilePath);
     if (!serializer.IsValid())
     {
-
+        return;
     }
     const FText description = serializer->GetFormatDescription();
-    AddToolbarWidget(SNew(SHorizontalBox)
+    AddToolbarWidget(
+        SNew(SVerticalBox)
 
-        // "File Type:" text
-        + SHorizontalBox::Slot()
-        .AutoWidth()
-        .VAlign(VAlign_Center)
-        .Padding(0)
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(0.0f, 0.0f, 15.0f, 0.0f)
+        [
+            SNew(SHorizontalBox)
+
+            // "File Type:" text
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0)
+            [
+                SNew(STextBlock)
+                .Text(INVTEXT("File Type: "))
+                .ColorAndOpacity(FSlateColor::UseSubduedForeground())
+            ]
+
+            // File type format text
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0)
+            [
+              SNew(STextBlock)
+              .Text(serializer->GetFormatName())
+              .ColorAndOpacity(FSlateColor::UseForeground())
+            ]
+
+            // Help icon to signal hover will tell you what it is
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(5.0f, 0.0f, 0.0f, 0.0f)
+            [
+                SNew(SImage)
+                .Image(FAppStyle::GetBrush("Icons.Help"))
+                .ColorAndOpacity(FSlateColor::UseSubduedForeground())
+                .ToolTipText(description)
+            ]
+        ]
+
+        // Print the version below the type and help icon
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .HAlign(HAlign_Right)
+        .Padding(0.0f, 0.0f, 15.0f, 0.0f)
         [
             SNew(STextBlock)
-            .Text(INVTEXT("File Type: "))
+            .Font(FCoreStyle::GetDefaultFontStyle("Italic", 8))
             .ColorAndOpacity(FSlateColor::UseSubduedForeground())
-        ]
-
-        // File type format text
-        + SHorizontalBox::Slot()
-        .AutoWidth()
-        .VAlign(VAlign_Center)
-        .Padding(0)
-        [
-          SNew(STextBlock)
-          .Text(serializer->GetFormatName())
-          .ColorAndOpacity(FSlateColor::UseForeground())
-        ]
-
-        // Help icon to signal hover will tell you what it is
-        + SHorizontalBox::Slot()
-        .AutoWidth()
-        .VAlign(VAlign_Center)
-        .Padding(5.0f, 0.0f, 15.0f, 0.0f)
-        [
-            SNew(SImage)
-            .Image(FAppStyle::GetBrush("Icons.Help"))
-            .ColorAndOpacity(FSlateColor::UseSubduedForeground())
-            .ToolTipText(description)
+            .Text(FText::Format(INVTEXT("Version: {0}"), serializer->GetFileFormatVersion().ToText()))
+            .ToolTipText(INVTEXT("The latest file format version that this file type is at.\nThis may be different from this specific DTA's file format version."))
         ]
     );
 
@@ -211,6 +235,9 @@ void FSGDynamicTextAssetEditorToolkit::InitEditor(EToolkitMode::Type Mode,
     detailsViewArgs.NotifyHook         = this;
 
     DetailsView = propertyModule.CreateDetailView(detailsViewArgs);
+
+    // Set extension handler for asset bundle icons on soft reference properties
+    DetailsView->SetExtensionHandler(MakeShared<FSGDynamicTextAssetPropertyExtensionHandler>());
 
     // Wire property-change callback
     DetailsView->OnFinishedChangingProperties().AddSP(
@@ -381,20 +408,23 @@ bool FSGDynamicTextAssetEditorToolkit::LoadFromFile()
         return false;
     }
 
-    // Extract metadata
-    FSGDynamicTextAssetFileMetadata fileMetadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(FilePath);
-    if (!fileMetadata.bIsValid)
+    // Extract file information
+    FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(FilePath);
+    if (!fileInfo.bIsValid)
     {
-        UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("Failed to extract metadata for: %s"), *FilePath);
+        UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("Failed to extract file info for: %s"), *FilePath);
         return false;
     }
 
+    // Track the file's format version for minor auto-upgrade detection on save
+    LoadedFileFormatVersion = fileInfo.FileFormatVersion;
+
     // Determine class
-    UClass* classToUse = FindFirstObject<UClass>(*fileMetadata.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
+    UClass* classToUse = FindFirstObject<UClass>(*fileInfo.ClassName, EFindFirstObjectOptions::EnsureIfAmbiguous);
     if (classToUse && !classToUse->ImplementsInterface(USGDynamicTextAssetProvider::StaticClass()))
     {
         UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
-            TEXT("Resolved class '%s' does not implement ISGDynamicTextAssetProvider, ignoring"), *fileMetadata.ClassName);
+            TEXT("Resolved class '%s' does not implement ISGDynamicTextAssetProvider, ignoring"), *fileInfo.ClassName);
         classToUse = nullptr;
     }
 
@@ -443,12 +473,12 @@ bool FSGDynamicTextAssetEditorToolkit::LoadFromFile()
         }
     }
 
-    // Populate UserFacingId from file metadata if not already set
+    // Populate UserFacingId from file info if not already set
     if (ISGDynamicTextAssetProvider* provider = Cast<ISGDynamicTextAssetProvider>(dataObject))
     {
-        if (provider->GetUserFacingId().IsEmpty() && !fileMetadata.UserFacingId.IsEmpty())
+        if (provider->GetUserFacingId().IsEmpty() && !fileInfo.UserFacingId.IsEmpty())
         {
-            provider->SetUserFacingId(fileMetadata.UserFacingId);
+            provider->SetUserFacingId(fileInfo.UserFacingId);
         }
 
         UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Loaded dynamic text asset from: %s (UserFacingId: %s)"),
@@ -493,16 +523,52 @@ bool FSGDynamicTextAssetEditorToolkit::SaveToFile()
         errorMessage += validationResult.ToFormattedString();
         errorMessage += TEXT("\nPlease fix the error(s) before saving.");
 
-        FMessageDialog::Open(EAppMsgType::Ok,
-            FText::FromString(errorMessage),
-            FText::FromString(TEXT("Validation Failed")));
+        for (const FSGDynamicTextAssetValidationEntry& error : validationResult.Errors)
+        {
+            UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
+                TEXT("Validation error for '%s' [%s]: %s"),
+                *provider->GetUserFacingId(),
+                *error.PropertyPath,
+                *error.Message.ToString());
+        }
 
         UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
             TEXT("Cannot save '%s' (%s): validation failed with %d issue(s)"),
             *provider->GetUserFacingId(),
             *provider->GetDynamicTextAssetId().ToString(),
             validationResult.GetTotalCount());
+
+        FMessageDialog::Open(EAppMsgType::Ok,
+            FText::FromString(errorMessage),
+            INVTEXT("Validation Failed"));
+
         return false;
+    }
+
+    // Show warnings to the user and let them decide whether to proceed
+    if (validationResult.HasWarnings())
+    {
+        for (const FSGDynamicTextAssetValidationEntry& warning : validationResult.Warnings)
+        {
+            UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
+                TEXT("Validation warning for '%s' [%s]: %s"),
+                *provider->GetUserFacingId(),
+                *warning.PropertyPath,
+                *warning.Message.ToString());
+        }
+
+        FString warningMessage = TEXT("Validation produced the following warnings:\n\n");
+        warningMessage += validationResult.ToFormattedString();
+        warningMessage += TEXT("\nDo you want to save anyway?");
+
+        EAppReturnType::Type userChoice = FMessageDialog::Open(EAppMsgType::YesNo,
+            FText::FromString(warningMessage),
+            INVTEXT("Validation Warnings"));
+
+        if (userChoice != EAppReturnType::Yes)
+        {
+            return false;
+        }
     }
 
     // Serialize via the provider interface
@@ -519,6 +585,21 @@ bool FSGDynamicTextAssetEditorToolkit::SaveToFile()
         {
             UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("Failed to serialize dynamic text asset"));
             return false;
+        }
+
+        // Minor/patch format version auto-upgrade: if the file was loaded with an older
+        // minor/patch version (same major), call MigrateFileFormat() for any structural
+        // changes and log the upgrade. No user notification is needed for minor bumps.
+        const FSGDynamicTextAssetVersion currentFormatVersion = serializer->GetFileFormatVersion();
+        if (LoadedFileFormatVersion.IsValid()
+            && LoadedFileFormatVersion != currentFormatVersion
+            && LoadedFileFormatVersion.Major == currentFormatVersion.Major)
+        {
+            serializer->MigrateFileFormat(fileOutput, LoadedFileFormatVersion, currentFormatVersion);
+
+            UE_LOG(LogSGDynamicTextAssetsEditor, Log,
+                TEXT("Auto-upgraded file format version %s -> %s for: %s"),
+                *LoadedFileFormatVersion.ToString(), *currentFormatVersion.ToString(), *FilePath);
         }
     }
 
@@ -540,7 +621,7 @@ bool FSGDynamicTextAssetEditorToolkit::SaveToFile()
         {
             UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
                 TEXT("Failed to check out file from source control: %s"), *FilePath);
-            // Continue anyway — user may want to save locally
+            // Continue anyway  - user may want to save locally
         }
     }
 
@@ -553,6 +634,19 @@ bool FSGDynamicTextAssetEditorToolkit::SaveToFile()
 
     MarkClean();
     RefreshRawView();
+
+    // Incrementally update the project info cache with this file's format version
+    if (USGDynamicTextAssetScanSubsystem* scanSubsystem = GEditor->GetEditorSubsystem<USGDynamicTextAssetScanSubsystem>())
+    {
+        TSharedPtr<ISGDynamicTextAssetSerializer> serializer = FSGDynamicTextAssetFileManager::FindSerializerForFile(FilePath);
+        if (serializer.IsValid())
+        {
+            scanSubsystem->UpdateProjectInfoForFile(serializer->GetSerializerTypeId(), serializer->GetFileFormatVersion());
+
+            // Update tracked version so subsequent saves don't re-log the upgrade
+            LoadedFileFormatVersion = serializer->GetFileFormatVersion();
+        }
+    }
 
     UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Saved dynamic text asset to: %s"), *FilePath);
     return true;
@@ -607,16 +701,22 @@ TSharedRef<SDockTab> FSGDynamicTextAssetEditorToolkit::SpawnTab_Details(const FS
 
 TSharedRef<SDockTab> FSGDynamicTextAssetEditorToolkit::SpawnTab_RawView(const FSpawnTabArgs& Args)
 {
-    FText dataObjectId = INVTEXT("");
-    FText userFacingId = INVTEXT("");
-    FText version = INVTEXT("");
-    FText rawText = INVTEXT("");
+    FText dataObjectId = FText::GetEmpty();
+    FText userFacingId = FText::GetEmpty();
+    FText version = FText::GetEmpty();
+    FText fileFormatVersion = FText::GetEmpty();
+    FText rawText = FText::GetEmpty();
 
+    // Retrieve values from the DTA
     if (ISGDynamicTextAssetProvider* provider = Cast<ISGDynamicTextAssetProvider>(EditedDynamicTextAsset))
     {
         dataObjectId = FText::FromString(provider->GetDynamicTextAssetId().ToString());
         userFacingId = FText::FromString(provider->GetUserFacingId());
         version = FText::FromString(provider->GetVersion().ToString());
+        if (TSharedPtr<ISGDynamicTextAssetSerializer> serializer = USGDynamicTextAssetStatics::FindSerializerForDynamicTextAssetId(provider->GetDynamicTextAssetId()))
+        {
+            fileFormatVersion = serializer->GetFileFormatVersion().ToText();
+        }
     }
 
     return SNew(SDockTab)
@@ -627,6 +727,7 @@ TSharedRef<SDockTab> FSGDynamicTextAssetEditorToolkit::SpawnTab_RawView(const FS
             .UserFacingId(userFacingId)
             .Version(version)
             .JsonText(GetRawText())
+            .FileFormatVersion(fileFormatVersion)
             .OnRefreshRequested(FSimpleDelegate::CreateSP(this, &FSGDynamicTextAssetEditorToolkit::RefreshRawView))
         ];
 }
@@ -668,31 +769,31 @@ void FSGDynamicTextAssetEditorToolkit::OpenEditorForFile(const FString& InFilePa
         return;
     }
 
-    FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(InFilePath);
-    if (!metadata.bIsValid)
+    FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(InFilePath);
+    if (!fileInfo.bIsValid)
     {
-        UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("OpenEditorForFile: failed to extract metadata %s"), *InFilePath);
+        UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("OpenEditorForFile: failed to extract file info %s"), *InFilePath);
         return;
     }
 
     // Resolve class via Asset Type ID (O(1) map lookup), with fallback to class name for legacy files
     UClass* dataObjectClass = nullptr;
-    FSGDynamicTextAssetTypeId resolvedTypeId = metadata.AssetTypeId;
+    FSGDynamicTextAssetTypeId resolvedTypeId = fileInfo.AssetTypeId;
     if (USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
     {
-        if (metadata.AssetTypeId.IsValid())
+        if (fileInfo.AssetTypeId.IsValid())
         {
-            dataObjectClass = registry->ResolveClassForTypeId(metadata.AssetTypeId);
+            dataObjectClass = registry->ResolveClassForTypeId(fileInfo.AssetTypeId);
         }
 
         // Fallback: resolve by class name for legacy files without a valid Asset Type ID
-        if (!dataObjectClass && !metadata.ClassName.IsEmpty())
+        if (!dataObjectClass && !fileInfo.ClassName.IsEmpty())
         {
             TArray<UClass*> allClasses;
             registry->GetAllInstantiableClasses(allClasses);
             for (UClass* registeredClass : allClasses)
             {
-                if (registeredClass && registeredClass->GetName() == metadata.ClassName)
+                if (registeredClass && registeredClass->GetName() == fileInfo.ClassName)
                 {
                     dataObjectClass = registeredClass;
                     resolvedTypeId = registry->GetTypeIdForClass(registeredClass);
@@ -706,7 +807,7 @@ void FSGDynamicTextAssetEditorToolkit::OpenEditorForFile(const FString& InFilePa
     {
         UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
             TEXT("OpenEditorForFile: failed to resolve class for AssetTypeId '%s' (ClassName '%s') in %s"),
-            *metadata.AssetTypeId.ToString(), *metadata.ClassName, *InFilePath);
+            *fileInfo.AssetTypeId.ToString(), *fileInfo.ClassName, *InFilePath);
         return;
     }
 
@@ -732,13 +833,13 @@ void FSGDynamicTextAssetEditorToolkit::NotifyFileRenamed(const FString& OldFileP
     toolkit->FilePath = NewFilePath;
     OPEN_EDITORS.Add(NewFilePath, toolkit);
 
-    // Reload UserFacingId from the renamed file's metadata
+    // Reload UserFacingId from the renamed file's file info
     if (ISGDynamicTextAssetProvider* provider = Cast<ISGDynamicTextAssetProvider>(toolkit->EditedDynamicTextAsset))
     {
-        FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(NewFilePath);
-        if (metadata.bIsValid && !metadata.UserFacingId.IsEmpty())
+        FSGDynamicTextAssetFileInfo renamedFileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(NewFilePath);
+        if (renamedFileInfo.bIsValid && !renamedFileInfo.UserFacingId.IsEmpty())
         {
-            provider->SetUserFacingId(metadata.UserFacingId);
+            provider->SetUserFacingId(renamedFileInfo.UserFacingId);
         }
     }
 
@@ -791,7 +892,7 @@ bool FSGDynamicTextAssetEditorToolkit::SaveOpenEditor(const FString& InFilePath)
     TWeakPtr<FSGDynamicTextAssetEditorToolkit>* existing = OPEN_EDITORS.Find(InFilePath);
     if (!existing || !existing->IsValid())
     {
-        // No editor open — nothing to save
+        // No editor open  - nothing to save
         return true;
     }
 

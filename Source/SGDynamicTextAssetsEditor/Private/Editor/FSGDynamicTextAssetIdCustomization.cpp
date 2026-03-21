@@ -76,7 +76,7 @@ void FSGDynamicTextAssetIdCustomization::CustomizeChildren(TSharedRef<IPropertyH
 	IDetailChildrenBuilder& ChildBuilder,
 	IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
-	// No children exposed — the ID is displayed inline in the header row
+	// No children exposed  - the ID is displayed inline in the header row
 }
 
 FText FSGDynamicTextAssetIdCustomization::GetIdDisplayText() const

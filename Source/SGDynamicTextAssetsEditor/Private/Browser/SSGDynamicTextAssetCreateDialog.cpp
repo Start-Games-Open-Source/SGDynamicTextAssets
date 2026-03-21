@@ -3,7 +3,7 @@
 #include "Browser/SSGDynamicTextAssetCreateDialog.h"
 
 #include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetFileMetadata.h"
+#include "Management/SGDynamicTextAssetFileInfo.h"
 #include "SGDynamicTextAssetEditorLogs.h"
 #include "Utilities/SGDynamicTextAssetSourceControl.h"
 #include "Widgets/SSGDynamicTextAssetClassPicker.h"
@@ -414,8 +414,8 @@ bool SSGDynamicTextAssetCreateDialog::IsNameAlreadyUsed(const FString& Name) con
 
     for (const FString& filePath : allFilePaths)
     {
-        FSGDynamicTextAssetFileMetadata metadata = FSGDynamicTextAssetFileManager::ExtractMetadataFromFile(filePath);
-        if (metadata.bIsValid && metadata.UserFacingId.Equals(Name, ESearchCase::IgnoreCase))
+        FSGDynamicTextAssetFileInfo fileInfo = FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile(filePath);
+        if (fileInfo.bIsValid && fileInfo.UserFacingId.Equals(Name, ESearchCase::IgnoreCase))
         {
             return true;
         }

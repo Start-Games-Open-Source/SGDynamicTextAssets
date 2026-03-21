@@ -10,7 +10,7 @@ uint32 FSGDynamicTextAssetCookManifestStringTable::AddString(const FString& InSt
 	{
 		UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
 			TEXT("FSGDynamicTextAssetCookManifestStringTable::AddString: "
-				"Empty string passed — use INVALID_STRING_INDEX for absent fields"));
+				"Empty string passed  - use INVALID_STRING_INDEX for absent fields"));
 		return INVALID_STRING_INDEX;
 	}
 
@@ -64,7 +64,7 @@ void FSGDynamicTextAssetCookManifestStringTable::SerializeTo(FArchive& Ar) const
 		{
 			UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
 				TEXT("FSGDynamicTextAssetCookManifestStringTable::SerializeTo: "
-					"String '%s' UTF-8 length (%d) exceeds uint16 max — truncating to %d bytes"),
+					"String '%s' UTF-8 length (%d) exceeds uint16 max  - truncating to %d bytes"),
 				*string, utf8Length, MAX_uint16);
 			utf8Length = MAX_uint16;
 		}
@@ -88,7 +88,7 @@ bool FSGDynamicTextAssetCookManifestStringTable::DeserializeFrom(FArchive& Ar)
 	{
 		UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
 			TEXT("FSGDynamicTextAssetCookManifestStringTable::DeserializeFrom: "
-				"String count %u exceeds maximum of %u — data is likely corrupt"),
+				"String count %u exceeds maximum of %u  - data is likely corrupt"),
 			count, MAX_REASONABLE_STRING_COUNT);
 		return false;
 	}

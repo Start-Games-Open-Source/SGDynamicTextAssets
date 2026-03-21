@@ -41,7 +41,7 @@ This is **not** a UInterface. It uses standard C++ polymorphism with `TSharedPtr
 | `SerializeProvider()` | Provider → string |
 | `DeserializeProvider()` | String → provider (with migration flag) |
 | `ValidateStructure()` | Structural validation without full deserialization |
-| `ExtractMetadata()` | Lightweight header parsing for Id, ClassName, Version, TypeId |
+| `ExtractFileInfo()` | Lightweight header parsing for Id, ClassName, Version, TypeId |
 | `UpdateFieldsInPlace()` | Patch metadata fields without full round-trip |
 | `GetDefaultFileContent()` | Generate initial file content for new assets |
 
@@ -61,7 +61,8 @@ IDs must be globally unique. Duplicate registration is a fatal error.
 The interface defines standard metadata keys used across all formats:
 
 ```cpp
-static const FString KEY_METADATA;       // "metadata"
+static const FString KEY_FILE_INFORMATION; // "sgFileInformation"
+static const FString KEY_METADATA_LEGACY;  // "metadata" (backward compat)
 static const FString KEY_TYPE;           // "type"
 static const FString KEY_VERSION;        // "version"
 static const FString KEY_ID;             // "id"
@@ -117,9 +118,7 @@ public:
     virtual bool SerializeProvider(const ISGDynamicTextAssetProvider* Provider, FString& OutString) const override;
     virtual bool DeserializeProvider(const FString& InString, ISGDynamicTextAssetProvider* OutProvider, bool& bOutMigrated) const override;
     virtual bool ValidateStructure(const FString& InString, FString& OutErrorMessage) const override;
-    virtual bool ExtractMetadata(const FString& InString, FSGDynamicTextAssetId& OutId,
-        FString& OutClassName, FString& OutUserFacingId, FString& OutVersion,
-        FSGDynamicTextAssetTypeId& OutAssetTypeId) const override;
+    virtual bool ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const override;
     virtual bool UpdateFieldsInPlace(FString& InOutContents, const TMap<FString, FString>& FieldUpdates) const override;
     virtual FString GetDefaultFileContent(const UClass* DynamicTextAssetClass,
         const FSGDynamicTextAssetId& Id, const FString& UserFacingId) const override;
@@ -148,18 +147,16 @@ bool FMyCustomSerializer::SerializeProvider(const ISGDynamicTextAssetProvider* P
 }
 ```
 
-### Step 3: Implement ExtractMetadata
+### Step 3: Implement ExtractFileInfo
 
 This must be lightweight because it is called frequently for file browsing and reference scanning without fully deserializing:
 
 ```cpp
-bool FMyCustomSerializer::ExtractMetadata(const FString& InString,
-    FSGDynamicTextAssetId& OutId, FString& OutClassName,
-    FString& OutUserFacingId, FString& OutVersion,
-    FSGDynamicTextAssetTypeId& OutAssetTypeId) const
+bool FMyCustomSerializer::ExtractFileInfo(const FString& InString,
+    FSGDynamicTextAssetFileInfo& OutFileInfo) const
 {
-    // Parse only the metadata/header section of your format
-    // Populate: OutId, OutClassName, OutUserFacingId, OutVersion, OutAssetTypeId
+    // Parse only the file information/header section of your format
+    // Populate: OutFileInfo.Id, OutFileInfo.ClassName, OutFileInfo.UserFacingId, OutFileInfo.Version, OutFileInfo.AssetTypeId
     return true;
 }
 ```
@@ -188,12 +185,12 @@ void FMyModule::ShutdownModule()
 3. Checks for TypeId collision (fatal error if duplicate)
 4. Stores in both `REGISTERED_SERIALIZERS` (by extension) and `REGISTERED_SERIALIZERS_BY_ID` (by TypeId)
 
-## File Metadata
+## File Information
 
-`FSGDynamicTextAssetFileMetadata` is the struct returned by lightweight header parsing:
+`FSGDynamicTextAssetFileInfo` is the struct returned by lightweight header parsing:
 
 ```cpp
-struct FSGDynamicTextAssetFileMetadata
+struct FSGDynamicTextAssetFileInfo
 {
     bool bIsValid = false;
     FSGDynamicTextAssetId Id;
@@ -204,7 +201,7 @@ struct FSGDynamicTextAssetFileMetadata
 };
 ```
 
-Used by the browser, file manager, and reference scanner for fast file inspection without full deserialization. Populated via `FSGDynamicTextAssetFileManager::ExtractMetadataFromFile()`.
+Used by the browser, file manager, and reference scanner for fast file inspection without full deserialization. Populated via `FSGDynamicTextAssetFileManager::ExtractFileInfoFromFile()`.
 
 ## File Format Conversion
 
@@ -250,5 +247,63 @@ static TArray<TSharedPtr<ISGDynamicTextAssetSerializer>> GetAllRegisteredSeriali
 // Diagnostic descriptions ("TypeId=N | Extension='ext' | Format='name'")
 static void GetAllRegisteredSerializerDescriptions(TArray<FString>& OutDescriptions);
 ```
+
+## File Format Versioning
+
+Custom serializers should implement file format versioning to support future structural changes to the file format.
+
+### Required Override
+
+Override `GetFileFormatVersion()` to return your format's current version:
+
+```cpp
+FSGDynamicTextAssetVersion GetFileFormatVersion() const override
+{
+    // Start at 1.0.0, increment when your format structure changes
+    return FSGDynamicTextAssetVersion(1, 0, 0);
+}
+```
+
+### Required Override: UpdateFileFormatVersion
+
+Override `UpdateFileFormatVersion()` to update the version stamp in your format's raw file content. This is called by the migration pipeline after structural migration succeeds:
+
+```cpp
+bool UpdateFileFormatVersion(FString& InOutFileContents,
+    const FSGDynamicTextAssetVersion& NewVersion) const override
+{
+    // Use regex or string replacement to find and update the
+    // fileFormatVersion field in your format's syntax.
+    // Return true on success, false if the field was not found.
+}
+```
+
+> You don't have to use regex, I just used it for simplicity and performance.
+> You can use any approach you want because its not a runtime process.
+
+### Optional Override: MigrateFileFormat
+
+Override `MigrateFileFormat()` when you introduce structural changes to your format (renamed keys, reorganized blocks, etc.). The default implementation returns `true` (no structural changes needed):
+
+```cpp
+bool MigrateFileFormat(FString& InOutFileContents,
+    const FSGDynamicTextAssetVersion& CurrentFormatVersion,
+    const FSGDynamicTextAssetVersion& TargetFormatVersion) const override
+{
+    // Apply structural transformations to InOutFileContents.
+    // The version stamp is updated separately by UpdateFileFormatVersion().
+    return true;
+}
+```
+
+### Migration Pipeline Flow
+
+When the editor detects outdated files (major version mismatch), the migration runs:
+
+1. `MigrateFileFormat()` applies structural changes to the file content
+2. `UpdateFileFormatVersion()` stamps the new version into the file
+3. The updated content is written back to disk
+
+This separation ensures that structural migration logic and version bookkeeping are independent concerns.
 
 [Back to Table of Contents](../TableOfContents.md)

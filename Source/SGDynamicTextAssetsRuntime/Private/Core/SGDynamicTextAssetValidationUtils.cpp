@@ -91,7 +91,7 @@ bool FSGDynamicTextAssetValidationUtils::IsHardReferenceProperty(const FProperty
 			return false;
 		}
 
-		// Other structs are fine — they don't hold hard references by themselves
+		// Other structs are fine  - they don't hold hard references by themselves
 		return false;
 	}
 
@@ -153,7 +153,7 @@ bool FSGDynamicTextAssetValidationUtils::IsHardReferenceProperty(const FProperty
 		return true;
 	}
 
-	// TArray<> — check inner property recursively
+	// TArray<>  - check inner property recursively
 	if (const FArrayProperty* arrayProp = CastField<FArrayProperty>(InProperty))
 	{
 		if (arrayProp->Inner)
@@ -176,7 +176,7 @@ bool FSGDynamicTextAssetValidationUtils::IsHardReferenceProperty(const FProperty
 		return false;
 	}
 
-	// TMap<> — check key and value properties recursively
+	// TMap<>  - check key and value properties recursively
 	if (const FMapProperty* mapProp = CastField<FMapProperty>(InProperty))
 	{
 		const int32 countBefore = OutViolations.Num();
@@ -212,7 +212,7 @@ bool FSGDynamicTextAssetValidationUtils::IsHardReferenceProperty(const FProperty
 		return OutViolations.Num() > countBefore;
 	}
 
-	// TSet<> — check inner property recursively
+	// TSet<>  - check inner property recursively
 	if (const FSetProperty* setProp = CastField<FSetProperty>(InProperty))
 	{
 		if (setProp->ElementProp)

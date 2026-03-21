@@ -96,11 +96,11 @@ static bool FindFileForId(const FSGDynamicTextAssetId& Id, FString& OutFilePath,
 
 `FindFileForId` is O(1) in cooked builds (uses the cook manifest) and O(N) in editor (scans files).
 
-### Metadata Extraction
+### File Information Extraction
 
 ```cpp
-// Quick metadata without full deserialization
-static FSGDynamicTextAssetFileMetadata ExtractMetadataFromFile(const FString& FilePath);
+// Quick file info without full deserialization
+static FSGDynamicTextAssetFileInfo ExtractFileInfoFromFile(const FString& FilePath);
 
 // Extract UserFacingId from path
 static FString ExtractUserFacingIdFromPath(const FString& FilePath);
@@ -301,18 +301,18 @@ See [Binary Format](../Serialization/BinaryFormat.md) for the cooked output path
 
 Binary file header details and encoding parameters are defined in separate headers: `SGBinaryDynamicTextAssetHeader.h` defines the 80-byte binary file header struct, and `SGBinaryEncodeParams.h` defines the encoding parameters used during binary compression. See [Binary Format](../Serialization/BinaryFormat.md) for full details.
 
-## File Metadata Extraction
+## File Information Extraction
 
-`ExtractMetadataFromFile()` provides lightweight file inspection without full deserialization:
+`ExtractFileInfoFromFile()` provides lightweight file inspection without full deserialization:
 
 ```cpp
-static FSGDynamicTextAssetFileMetadata ExtractMetadataFromFile(const FString& FilePath);
+static FSGDynamicTextAssetFileInfo ExtractFileInfoFromFile(const FString& FilePath);
 ```
 
-Returns an `FSGDynamicTextAssetFileMetadata` struct:
+Returns an `FSGDynamicTextAssetFileInfo` struct:
 
 ```cpp
-struct FSGDynamicTextAssetFileMetadata
+struct FSGDynamicTextAssetFileInfo
 {
     bool bIsValid = false;
     FSGDynamicTextAssetId Id;

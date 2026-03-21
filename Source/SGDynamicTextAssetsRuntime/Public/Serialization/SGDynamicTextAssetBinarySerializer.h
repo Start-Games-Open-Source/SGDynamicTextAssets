@@ -27,7 +27,7 @@ struct FSGDynamicTextAssetId;
  * ├── GUID (16 bytes): asset instance identity
  * ├── AssetTypeGuid (16 bytes): asset type (class) identity
  * ├── Content Hash (20 bytes): SHA-1 of compressed payload
- * [Compressed Data — always begins at byte offset HEADER_SIZE (80)]
+ * [Compressed Data  - always begins at byte offset HEADER_SIZE (80)]
  * └── Compressed payload bytes (format determined by SerializerTypeId)
  *
  * @see FSGDynamicTextAssetJsonSerializer
@@ -54,7 +54,7 @@ public:
 	 *
 	 * @param BinaryData The binary data to decompress
 	 * @param OutPayloadString Output string containing the decompressed payload
-	 * @param OutSerializerTypeId The serializer type ID stored in the header — pass to FSGDynamicTextAssetFileManager::FindSerializerForTypeId() to get the deserializer
+	 * @param OutSerializerTypeId The serializer type ID stored in the header  - pass to FSGDynamicTextAssetFileManager::FindSerializerForTypeId() to get the deserializer
 	 * @return True if extraction succeeded
 	 */
 	static bool BinaryToString(

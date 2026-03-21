@@ -18,11 +18,12 @@ Every `.dta.json` file follows this structure:
 
 ```json
 {
-  "metadata": {
+  "sgFileInformation": {
     "type": "UWeaponData",
     "version": "1.0.0",
     "id": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
-    "userfacingid": "excalibur"
+    "userfacingid": "excalibur",
+    "fileFormatVersion": "1.0.0"
   },
   "data": {
     "DisplayName": "Excalibur",
@@ -35,14 +36,15 @@ Every `.dta.json` file follows this structure:
 
 ### Metadata Block
 
-All identity fields are nested under a `"metadata"` object at the root level, alongside the `"data"` object.
+All identity fields are nested under a `"sgFileInformation"` object at the root level, alongside the `"data"` object.
 
 | Field | Key | Type | Description |
 |-------|-----|------|-------------|
-| Type | `type` | String | The UClass name including prefix (e.g., `"UWeaponData"`) |
+| Type | `type` | String | The `FSGDynamicTextAssetTypeId` GUID when available (preferred), or the UClass name including prefix as a fallback (e.g., `"UWeaponData"`) |
 | Version | `version` | String | Semantic version in `"Major.Minor.Patch"` format |
 | ID | `id` | String | The unique identifier in standard GUID format (maps to `FSGDynamicTextAssetId`) |
 | User Facing ID | `userfacingid` | String | Human-readable identifier for display and lookups |
+| File Format Version | `fileFormatVersion` | String | Serializer format structural version in `"Major.Minor.Patch"` format. Defaults to `"1.0.0"` if absent. Written automatically on save. |
 
 ### Data Section
 
@@ -76,7 +78,7 @@ All methods are inherited from `ISGDynamicTextAssetSerializer`. See [SerializerI
 | `SerializeProvider` | Converts a provider's properties to formatted JSON with consistent indentation (UTF-8) |
 | `DeserializeProvider` | Parses JSON, extracts metadata, checks version compatibility, triggers migration if needed, then populates UPROPERTY fields via reflection |
 | `ValidateStructure` | Validates that a JSON string has the correct structure (`metadata` block with `type`/`id`/`version`/`userfacingid`, and `data` block) without creating or modifying any objects |
-| `ExtractMetadata` | Extracts all four metadata fields without full deserialization, useful for scanning and indexing |
+| `ExtractFileInfo` | Extracts all four file information fields without full deserialization, useful for scanning and indexing |
 | `UpdateFieldsInPlace` | Updates metadata fields within an already-serialized JSON string in-place (used by Rename and Duplicate operations) |
 | `GetDefaultFileContent` | Generates the initial JSON file content for a new dynamic text asset with metadata and empty data block |
 | `GetSerializerTypeId` | Returns `1` |
@@ -87,12 +89,15 @@ Metadata keys are defined as static constants on `ISGDynamicTextAssetSerializer`
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `KEY_METADATA` | `"metadata"` | Wrapper key for the metadata block |
+| `KEY_FILE_INFORMATION` | `"sgFileInformation"` | Wrapper key for the file information block |
+| `KEY_METADATA_LEGACY` | `"metadata"` | Legacy wrapper key (backward compat) |
 | `KEY_TYPE` | `"type"` | Class type name key |
 | `KEY_VERSION` | `"version"` | Semantic version key |
 | `KEY_ID` | `"id"` | GUID key |
 | `KEY_USER_FACING_ID` | `"userfacingid"` | Human-readable identifier key |
+| `KEY_FILE_FORMAT_VERSION` | `"fileFormatVersion"` | File format structural version |
 | `KEY_DATA` | `"data"` | Property data block key |
+| `KEY_SGDT_ASSET_BUNDLES` | `"sgdtAssetBundles"` | Asset bundle metadata block key |
 
 ### Registration
 
@@ -103,6 +108,51 @@ FSGDynamicTextAssetFileManager::RegisterSerializer<FSGDynamicTextAssetJsonSerial
 ```
 
 See [SerializerInterface.md](SerializerInterface.md) for the full registration pattern.
+
+## Asset Bundle Metadata
+
+When a dynamic text asset has soft reference properties tagged with `meta=(AssetBundles="...")`, the serializer writes an `sgdtAssetBundles` block at the root level alongside `metadata` and `data`. This block is a snapshot of the bundle data extracted from the object's UPROPERTY meta tags.
+
+### Format
+
+The `sgdtAssetBundles` object uses bundle names as keys. Each key maps to an array of entries, where each entry has a `property` name and a `path` (the soft object path value).
+
+```json
+{
+  "sgFileInformation": { ... },
+  "data": { ... },
+  "sgdtAssetBundles": {
+    "Visual": [
+      { "property": "UWeaponData.MeshAsset", "path": "/Game/Weapons/Meshes/Sword.Sword" },
+      { "property": "UWeaponData.ImpactMaterial", "path": "/Game/Weapons/Materials/ImpactMat.ImpactMat" }
+    ],
+    "Audio": [
+      { "property": "UWeaponData.ImpactMaterial", "path": "/Game/Weapons/Materials/ImpactMat.ImpactMat" },
+      { "property": "UWeaponData.FireSound", "path": "/Game/Audio/Weapons/FireSFX.FireSFX" }
+    ]
+  }
+}
+```
+
+The `property` field uses qualified `OwnerClass.PropertyName` format to disambiguate same-named properties from different types (e.g., a base class and an instanced sub-object).
+
+### Behavior
+
+- The block is only written if the object has at least one bundled soft reference with a valid (non-null) path.
+- Properties tagged with multiple bundles (e.g., `meta=(AssetBundles="Visual,Audio")`) appear in each named bundle.
+- Properties without the `AssetBundles` meta tag are not included.
+- Container properties (`TArray`, `TMap`, `TSet`) tagged with `AssetBundles` propagate their bundle names to inner soft reference elements.
+- During deserialization in **editor builds**, the `sgdtAssetBundles` block is informational only - bundle data is re-extracted from UPROPERTY meta tags after properties are populated. In **packaged builds**, this block is the primary source since property metadata is stripped.
+
+### Extraction Without Full Deserialization
+
+The `ExtractSGDTAssetBundles()` method on the serializer can parse the `sgdtAssetBundles` block from a JSON string without deserializing the full object. This is useful for cook pipelines and editor tooling that need bundle information from files without instantiating C++ objects.
+
+### Key Constant
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `KEY_SGDT_ASSET_BUNDLES` | `"sgdtAssetBundles"` | Root-level key for the asset bundle metadata block |
 
 ## Instanced Object Serialization
 

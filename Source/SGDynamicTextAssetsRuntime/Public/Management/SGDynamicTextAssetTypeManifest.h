@@ -24,7 +24,7 @@ public:
 	/** Unique type identifier for this class. */
 	FSGDynamicTextAssetTypeId TypeId;
 
-	/** Soft reference to the UClass — avoids hard load dependencies. */
+	/** Soft reference to the UClass  - avoids hard load dependencies. */
 	TSoftClassPtr<UObject> Class;
 
 	/**
@@ -87,7 +87,7 @@ public:
 
 	/**
 	 * Finds a local manifest entry by type ID. O(1) lookup.
-	 * Does not consider server overlays — use GetEffectiveEntry() for that.
+	 * Does not consider server overlays  - use GetEffectiveEntry() for that.
 	 *
 	 * @param TypeId The type ID to search for
 	 * @return Pointer to the entry if found, nullptr otherwise
@@ -169,7 +169,7 @@ public:
 
 	/**
 	 * Applies server-provided type overrides.
-	 * Server overlay is stored separately — the local manifest file is never modified.
+	 * Server overlay is stored separately  - the local manifest file is never modified.
 	 *
 	 * Expected JSON format (same "types" array as the manifest):
 	 * {

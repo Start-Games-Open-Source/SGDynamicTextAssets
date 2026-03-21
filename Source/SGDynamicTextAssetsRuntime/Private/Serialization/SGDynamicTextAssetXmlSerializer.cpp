@@ -9,6 +9,7 @@
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Dom/JsonValue.h"
 #include "Dom/JsonObject.h"
+#include "Internationalization/Regex.h"
 #include "Statics/SGDynamicTextAssetSlateStyles.h"
 #include "UObject/TextProperty.h"
 #include "UObject/UnrealType.h"
@@ -272,19 +273,29 @@ namespace FSGDynamicTextAssetXmlSerializerInternals
         const FXmlNode* classNode = Node->FindChildNode(FSGDynamicTextAssetSerializerBase::INSTANCED_OBJECT_CLASS_KEY);
         if (!classNode)
         {
+            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                TEXT("FSGDynamicTextAssetXmlSerializerInternals::XmlNodeToInstancedObjectJsonValue: XML node missing '%s' child element"),
+                *FSGDynamicTextAssetSerializerBase::INSTANCED_OBJECT_CLASS_KEY);
             return nullptr;
         }
 
         const FString className = XmlUnescape(classNode->GetContent());
         if (className.IsEmpty())
         {
+            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                TEXT("FSGDynamicTextAssetXmlSerializerInternals::XmlNodeToInstancedObjectJsonValue: '%s' element is empty"),
+                *FSGDynamicTextAssetSerializerBase::INSTANCED_OBJECT_CLASS_KEY);
             return nullptr;
         }
 
-        // Resolve class to get property type information for correct JSON variant conversion
-        UClass* resolvedClass = FindFirstObject<UClass>(*className, EFindFirstObjectOptions::ExactClass);
+        // Resolve class to get property type information for correct JSON variant conversion.
+        // Uses LoadObject (via ResolveInstancedObjectClass) instead of FindFirstObject to ensure
+        // the class can be loaded from disk in packaged builds where it may not yet be in memory.
+        UClass* resolvedClass = FSGDynamicTextAssetSerializerBase::ResolveInstancedObjectClass(className);
         if (!resolvedClass)
         {
+            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                TEXT("FSGDynamicTextAssetXmlSerializerInternals::XmlNodeToInstancedObjectJsonValue: Failed to resolve class '%s'"), *className);
             return nullptr;
         }
 
@@ -359,15 +370,16 @@ Property values are converted via the FSGDynamicTextAssetSerializerBase
 JSON-intermediate helpers, keeping format-specific complexity
 contained to the XML-to-FJsonValue bridge.
 
-XML format uses a metadata wrapper block, for example:
+XML format uses a file information block (sgFileInformation), for example:
 <?xml version="1.0" encoding="UTF-8"?>
 <DynamicTextAsset>
-    <metadata>
+    <sgFileInformation>
         <type>UWeaponData</type>
         <version>1.0.0</version>
         <id>...</id>
         <userfacingid>excalibur</userfacingid>
-    </metadata>
+        <fileFormatVersion>1.5.2</fileFormatVersion>
+    </sgFileInformation>
     <data>
         <Damage>50.0</Damage>
     </data>
@@ -382,6 +394,12 @@ XML format uses a metadata wrapper block, for example:
 uint32 FSGDynamicTextAssetXmlSerializer::GetSerializerTypeId() const
 {
     return TYPE_ID;
+}
+
+FSGDynamicTextAssetVersion FSGDynamicTextAssetXmlSerializer::GetFileFormatVersion() const
+{
+    static const FSGDynamicTextAssetVersion version(2, 0, 0);
+    return version;
 }
 
 bool FSGDynamicTextAssetXmlSerializer::SerializeProvider(const ISGDynamicTextAssetProvider* Provider, FString& OutString) const
@@ -404,7 +422,8 @@ bool FSGDynamicTextAssetXmlSerializer::SerializeProvider(const ISGDynamicTextAss
     xml += FSGDynamicTextAssetXmlSerializerInternals::XML_DECLARATION;
     xml += FString::Printf(TEXT("<%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::XML_ROOT_TAG);
 
-    // Metadata block — write Asset Type ID GUID to the type element, fall back to class name if unavailable
+    // Write file information fields
+    // Write Asset Type ID GUID to the type element, fall back to class name if unavailable
     FString typeString;
     if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
     {
@@ -423,12 +442,13 @@ bool FSGDynamicTextAssetXmlSerializer::SerializeProvider(const ISGDynamicTextAss
         typeString = providerObject->GetClass()->GetName();
     }
 
-    xml += FString::Printf(TEXT("%s<%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_METADATA);
+    xml += FString::Printf(TEXT("%s<%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_FILE_INFORMATION);
     xml += FString::Printf(TEXT("%s<%s>%s</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_TYPE, *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(typeString), *KEY_TYPE);
     xml += FString::Printf(TEXT("%s<%s>%s</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_VERSION, *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(Provider->GetVersion().ToString()), *KEY_VERSION);
     xml += FString::Printf(TEXT("%s<%s>%s</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_ID, *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(Provider->GetDynamicTextAssetId().ToString()), *KEY_ID);
     xml += FString::Printf(TEXT("%s<%s>%s</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_USER_FACING_ID, *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(Provider->GetUserFacingId()), *KEY_USER_FACING_ID);
-    xml += FString::Printf(TEXT("%s</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_METADATA);
+    xml += FString::Printf(TEXT("%s<%s>%s</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_FILE_FORMAT_VERSION, *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(GetFileFormatVersion().ToString()), *KEY_FILE_FORMAT_VERSION);
+    xml += FString::Printf(TEXT("%s</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_FILE_INFORMATION);
 
     // Data block
     xml += FString::Printf(TEXT("%s<%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_DATA);
@@ -557,6 +577,35 @@ bool FSGDynamicTextAssetXmlSerializer::SerializeProvider(const ISGDynamicTextAss
     }
 
     xml += FString::Printf(TEXT("%s</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_DATA);
+
+    // Extract and serialize asset bundle metadata from soft reference properties
+    FSGDynamicTextAssetBundleData bundleData;
+    bundleData.ExtractFromObject(providerObject);
+
+    if (bundleData.HasBundles())
+    {
+        xml += FString::Printf(TEXT("%s<%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_SGDT_ASSET_BUNDLES);
+
+        for (const FSGDynamicTextAssetBundle& bundle : bundleData.Bundles)
+        {
+            xml += FString::Printf(TEXT("%s<bundle name=\"%s\">\n"),
+                *FSGDynamicTextAssetXmlSerializerInternals::Indent(2),
+                *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(bundle.BundleName.ToString()));
+
+            for (const FSGDynamicTextAssetBundleEntry& entry : bundle.Entries)
+            {
+                xml += FString::Printf(TEXT("%s<entry property=\"%s\" path=\"%s\"/>\n"),
+                    *FSGDynamicTextAssetXmlSerializerInternals::Indent(3),
+                    *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(entry.PropertyName.ToString()),
+                    *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(entry.AssetPath.ToString()));
+            }
+
+            xml += FString::Printf(TEXT("%s</bundle>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(2));
+        }
+
+        xml += FString::Printf(TEXT("%s</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_SGDT_ASSET_BUNDLES);
+    }
+
     xml += FString::Printf(TEXT("</%s>\n"), *FSGDynamicTextAssetXmlSerializerInternals::XML_ROOT_TAG);
 
     OutString = MoveTemp(xml);
@@ -569,42 +618,46 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
 
     if (!OutProvider)
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer: Inputted NULL OutProvider"));
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Inputted NULL OutProvider"));
         return false;
     }
 
     UObject* providerObject = OutProvider->_getUObject();
     if (!providerObject)
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer: Provider is not a valid UObject"));
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Provider is not a valid UObject"));
         return false;
     }
     if (InString.IsEmpty())
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer: Inputted EMPTY InString"));
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Inputted EMPTY InString"));
         return false;
     }
     FXmlFile xmlFile(InString, EConstructMethod::ConstructFromBuffer);
     if (!xmlFile.IsValid())
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer: Failed to parse XML: %s"), *xmlFile.GetLastError());
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Failed to parse XML: %s"), *xmlFile.GetLastError());
         return false;
     }
     const FXmlNode* rootNode = xmlFile.GetRootNode();
     if (!rootNode)
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer: XML has no root node"));
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: XML has no root node"));
         return false;
     }
-    // Read metadata block
-    const FXmlNode* metadataNode = rootNode->FindChildNode(KEY_METADATA);
-    if (!metadataNode)
+    // Read file information block
+    const FXmlNode* fileInfoNode = rootNode->FindChildNode(KEY_FILE_INFORMATION);
+    if (!fileInfoNode)
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer: XML missing <%s> block"), *KEY_METADATA);
+        fileInfoNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
+    }
+    if (!fileInfoNode)
+    {
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: XML missing <%s> (or legacy <%s>) block"), *KEY_FILE_INFORMATION, *KEY_METADATA_LEGACY);
         return false;
     }
-    // Validate class type — type element may contain a GUID (new format) or class name (legacy)
-    if (const FXmlNode* typeNode = metadataNode->FindChildNode(KEY_TYPE))
+    // Validate class type element may contain a GUID (new format) or class name (legacy)
+    if (const FXmlNode* typeNode = fileInfoNode->FindChildNode(KEY_TYPE))
     {
         const FString typeFieldValue = FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(typeNode->GetContent());
         FSGDynamicTextAssetTypeId fileTypeId = FSGDynamicTextAssetTypeId::FromString(typeFieldValue);
@@ -618,7 +671,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
                     if (resolvedClass != providerObject->GetClass())
                     {
                         UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
-                            TEXT("FSGDynamicTextAssetXmlSerializer: XML Asset Type ID(%s) resolves to class(%s) but OutProvider is class(%s)"),
+                            TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: XML Asset Type ID(%s) resolves to class(%s) but OutProvider is class(%s)"),
                             *typeFieldValue, *resolvedClass->GetName(), *providerObject->GetClass()->GetName());
                         // Continue anyway, might be loading into a parent class
                     }
@@ -626,7 +679,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
                 else
                 {
                     UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
-                        TEXT("FSGDynamicTextAssetXmlSerializer: Could not resolve Asset Type ID(%s) to a class"),
+                        TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Could not resolve Asset Type ID(%s) to a class"),
                         *typeFieldValue);
                 }
             }
@@ -637,14 +690,14 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
             if (typeFieldValue != providerObject->GetClass()->GetName())
             {
                 UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
-                    TEXT("FSGDynamicTextAssetXmlSerializer: XML typeName(%s) does not match OutProvider(%s)"),
+                    TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: XML typeName(%s) does not match OutProvider(%s)"),
                     *typeFieldValue, *providerObject->GetClass()->GetName());
                 // Continue anyway, might be loading into a parent class
             }
         }
     }
     // Extract and apply ID
-    if (const FXmlNode* idNode = metadataNode->FindChildNode(KEY_ID))
+    if (const FXmlNode* idNode = fileInfoNode->FindChildNode(KEY_ID))
     {
         FSGDynamicTextAssetId id;
         if (id.ParseString(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(idNode->GetContent())))
@@ -653,30 +706,43 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
         }
     }
     // Extract and apply UserFacingId
-    if (const FXmlNode* userFacingIdNode = metadataNode->FindChildNode(KEY_USER_FACING_ID))
+    if (const FXmlNode* userFacingIdNode = fileInfoNode->FindChildNode(KEY_USER_FACING_ID))
     {
         OutProvider->SetUserFacingId(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(userFacingIdNode->GetContent()));
     }
     // Extract and apply version
     FSGDynamicTextAssetVersion fileVersion;
-    if (const FXmlNode* versionNode = metadataNode->FindChildNode(KEY_VERSION))
+    if (const FXmlNode* versionNode = fileInfoNode->FindChildNode(KEY_VERSION))
     {
         fileVersion = FSGDynamicTextAssetVersion::ParseFromString(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(versionNode->GetContent()));
         OutProvider->SetVersion(fileVersion);
     }
+
+    // Extract file format version (missing = 1.0.0 for pre-format-version files)
+    FSGDynamicTextAssetVersion fileFormatVersion(1, 0, 0);
+    if (const FXmlNode* formatVersionNode = fileInfoNode->FindChildNode(KEY_FILE_FORMAT_VERSION))
+    {
+        fileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(
+            FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(formatVersionNode->GetContent()));
+    }
+
+    UE_LOG(LogSGDynamicTextAssetsRuntime, Verbose,
+        TEXT("FSGDynamicTextAssetXmlSerializer: File format version: %s (serializer current: %s)"),
+        *fileFormatVersion.ToString(), *GetFileFormatVersion().ToString());
+
     // Check for version migration
     const FSGDynamicTextAssetVersion currentVersion = OutProvider->GetCurrentVersion();
     if (fileVersion.Major < currentVersion.Major)
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Log,
-            TEXT("FSGDynamicTextAssetXmlSerializer: Migration required for Provider(%s): file version(%s) -> class version(%s)"),
+            TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Migration required for Provider(%s): file version(%s) -> class version(%s)"),
             *OutProvider->GetDynamicTextAssetId().ToString(), *fileVersion.ToString(), *currentVersion.ToString());
 
-        // Migration passes a null FJsonObject — XML providers must handle that in MigrateFromVersion
+        // Migration passes a null FJsonObject and XML providers must handle that in MigrateFromVersion
         if (!OutProvider->MigrateFromVersion(fileVersion, currentVersion, nullptr))
         {
             UE_LOG(LogSGDynamicTextAssetsRuntime, Error,
-                TEXT("FSGDynamicTextAssetXmlSerializer: Migration failed for Provider(%s) from fileVersion(%s)"),
+                TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Migration failed for Provider(%s) from fileVersion(%s)"),
                 *OutProvider->GetDynamicTextAssetId().ToString(), *fileVersion.ToString());
             return false;
         }
@@ -685,20 +751,20 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
         bOutMigrated = true;
 
         UE_LOG(LogSGDynamicTextAssetsRuntime, Log,
-            TEXT("FSGDynamicTextAssetXmlSerializer: Migration succeeded for Provider(%s): version(%s)"),
+            TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Migration succeeded for Provider(%s): version(%s)"),
             *OutProvider->GetDynamicTextAssetId().ToString(), *OutProvider->GetVersion().ToString());
     }
     else if (fileVersion.Major > currentVersion.Major)
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
-            TEXT("FSGDynamicTextAssetXmlSerializer: Provider(%s) has file major version fileVersion Major(%d) which is newer than class currentVersion Major(%d). Loading with best-effort."),
+            TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Provider(%s) has file major version fileVersion Major(%d) which is newer than class currentVersion Major(%d). Loading with best-effort."),
             *OutProvider->GetDynamicTextAssetId().ToString(), fileVersion.Major, currentVersion.Major);
     }
     // Find data block
     const FXmlNode* dataNode = rootNode->FindChildNode(KEY_DATA);
     if (!dataNode)
     {
-        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer: XML missing <%s> block"), *KEY_DATA);
+        UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: XML missing <%s> block"), *KEY_DATA);
         return false;
     }
 
@@ -714,7 +780,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
         const FXmlNode* propNode = dataNode->FindChildNode(property->GetName());
         if (!propNode)
         {
-            // Missing optional field — tolerated gracefully
+            // Missing optional field
             continue;
         }
 
@@ -733,7 +799,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
                 if (!DeserializeValueToInstancedObject(jsonValue, objectProp, valuePtr, providerObject))
                 {
                     UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
-                        TEXT("FSGDynamicTextAssetXmlSerializer: Failed to deserialize instanced property(%s) on OutProvider(%s)"),
+                        TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Failed to deserialize instanced property(%s) on OutProvider(%s)"),
                         *property->GetName(), *GetNameSafe(providerObject));
                 }
                 continue;
@@ -748,6 +814,12 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
                 if (const FObjectProperty* innerObjProp = CastField<FObjectProperty>(arrayProp->Inner))
                 {
                     const TArray<FXmlNode*>& childNodes = propNode->GetChildrenNodes();
+                    if (childNodes.IsEmpty())
+                    {
+                        UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                            TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Instanced array property '%s' on OutProvider(%s) has no child XML nodes"),
+                            *property->GetName(), *GetNameSafe(providerObject));
+                    }
                     FScriptArrayHelper arrayHelper(arrayProp, valuePtr);
                     arrayHelper.Resize(childNodes.Num());
 
@@ -757,7 +829,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
                         if (!DeserializeValueToInstancedObject(elemValue, innerObjProp, arrayHelper.GetRawPtr(i), providerObject))
                         {
                             UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
-                                TEXT("FSGDynamicTextAssetXmlSerializer: Failed to deserialize instanced array element [%d] of property(%s) on OutProvider(%s)"),
+                                TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Failed to deserialize instanced array element [%d] of property(%s) on OutProvider(%s)"),
                                 i, *property->GetName(), *GetNameSafe(providerObject));
                         }
                     }
@@ -784,7 +856,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
                         if (!DeserializeValueToInstancedObject(elemValue, elemObjProp, setHelper.GetElementPtr(newIndex), providerObject))
                         {
                             UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
-                                TEXT("FSGDynamicTextAssetXmlSerializer: Failed to deserialize instanced set element [%d] of property(%s) on OutProvider(%s)"),
+                                TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Failed to deserialize instanced set element [%d] of property(%s) on OutProvider(%s)"),
                                 i, *property->GetName(), *GetNameSafe(providerObject));
                         }
                     }
@@ -816,7 +888,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
                         if (!DeserializeValueToInstancedObject(elemValue, valueObjProp, valPtr, providerObject))
                         {
                             UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
-                                TEXT("FSGDynamicTextAssetXmlSerializer: Failed to deserialize instanced map value for key '%s' of property(%s)"),
+                                TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Failed to deserialize instanced map value for key '%s' of property(%s)"),
                                 *child->GetTag(), *property->GetName());
                         }
                     }
@@ -832,7 +904,7 @@ bool FSGDynamicTextAssetXmlSerializer::DeserializeProvider(const FString& InStri
         {
             if (!DeserializeValueToProperty(jsonValue, property, valuePtr))
             {
-                UE_LOG(LogSGDynamicTextAssetsRuntime, Warning, TEXT("FSGDynamicTextAssetXmlSerializer: Failed to deserialize property(%s) on OutProvider(%s)"),
+                UE_LOG(LogSGDynamicTextAssetsRuntime, Warning, TEXT("FSGDynamicTextAssetXmlSerializer::DeserializeProvider: Failed to deserialize property(%s) on OutProvider(%s)"),
                     *property->GetName(), *GetNameSafe(providerObject));
             }
         }
@@ -860,18 +932,37 @@ bool FSGDynamicTextAssetXmlSerializer::ValidateStructure(const FString& InString
         OutErrorMessage = TEXT("XML has no root node");
         return false;
     }
-    const FXmlNode* metadataNode = rootNode->FindChildNode(KEY_METADATA);
-    if (!metadataNode)
+    const FXmlNode* fileInfoNode = rootNode->FindChildNode(KEY_FILE_INFORMATION);
+    if (!fileInfoNode)
     {
-        OutErrorMessage = FString::Printf(TEXT("Missing required block <%s>"), *KEY_METADATA);
+        fileInfoNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
+    }
+    if (!fileInfoNode)
+    {
+        OutErrorMessage = FString::Printf(TEXT("Missing required block <%s> (or legacy <%s>)"), *KEY_FILE_INFORMATION, *KEY_METADATA_LEGACY);
         return false;
     }
-    const FXmlNode* typeNode = metadataNode->FindChildNode(KEY_TYPE);
+    const FXmlNode* typeNode = fileInfoNode->FindChildNode(KEY_TYPE);
     if (!typeNode || typeNode->GetContent().IsEmpty())
     {
-        OutErrorMessage = FString::Printf(TEXT("Missing required field <%s> inside <%s>"), *KEY_TYPE, *KEY_METADATA);
+        OutErrorMessage = FString::Printf(TEXT("Missing required field <%s> inside <%s>"), *KEY_TYPE, *KEY_FILE_INFORMATION);
         return false;
     }
+    // If fileFormatVersion is present, validate it is a parseable version string
+    const FXmlNode* formatVersionNode = fileInfoNode->FindChildNode(KEY_FILE_FORMAT_VERSION);
+    if (formatVersionNode && !formatVersionNode->GetContent().IsEmpty())
+    {
+        FSGDynamicTextAssetVersion parsedVersion = FSGDynamicTextAssetVersion::ParseFromString(
+            FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(formatVersionNode->GetContent()));
+        if (!parsedVersion.IsValid())
+        {
+            OutErrorMessage = FString::Printf(
+                TEXT("Field <%s> has invalid version string: %s"),
+                *KEY_FILE_FORMAT_VERSION, *formatVersionNode->GetContent());
+            return false;
+        }
+    }
+
     const FXmlNode* dataNode = rootNode->FindChildNode(KEY_DATA);
     if (!dataNode)
     {
@@ -882,10 +973,10 @@ bool FSGDynamicTextAssetXmlSerializer::ValidateStructure(const FString& InString
     return true;
 }
 
-bool FSGDynamicTextAssetXmlSerializer::ExtractMetadata(const FString& InString, FSGDynamicTextAssetId& OutId, FString& OutClassName, FString& OutUserFacingId, FString& OutVersion, FSGDynamicTextAssetTypeId& OutAssetTypeId) const
+bool FSGDynamicTextAssetXmlSerializer::ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const
 {
-    OutAssetTypeId.Invalidate();
-    OutClassName.Empty();
+    OutFileInfo = FSGDynamicTextAssetFileInfo();
+    OutFileInfo.SerializerTypeId = TYPE_ID;
 
     FXmlFile xmlFile(InString, EConstructMethod::ConstructFromBuffer);
     if (!xmlFile.IsValid())
@@ -897,51 +988,60 @@ bool FSGDynamicTextAssetXmlSerializer::ExtractMetadata(const FString& InString, 
     {
         return false;
     }
-    const FXmlNode* metadataNode = rootNode->FindChildNode(KEY_METADATA);
-    if (!metadataNode)
+    const FXmlNode* fileInfoNode = rootNode->FindChildNode(KEY_FILE_INFORMATION);
+    if (!fileInfoNode)
+    {
+        fileInfoNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
+    }
+    if (!fileInfoNode)
     {
         return false;
     }
 
     // Type element may contain a GUID (new format) or class name (legacy)
-    if (const FXmlNode* typeNode = metadataNode->FindChildNode(KEY_TYPE))
+    if (const FXmlNode* typeNode = fileInfoNode->FindChildNode(KEY_TYPE))
     {
         const FString typeFieldValue = FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(typeNode->GetContent());
         FSGDynamicTextAssetTypeId parsedTypeId = FSGDynamicTextAssetTypeId::FromString(typeFieldValue);
         if (parsedTypeId.IsValid())
         {
-            // New format: store TypeId and resolve class name from registry
-            OutAssetTypeId = parsedTypeId;
+            OutFileInfo.AssetTypeId = parsedTypeId;
 
             if (const USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
             {
                 if (const UClass* resolvedClass = registry->ResolveClassForTypeId(parsedTypeId))
                 {
-                    OutClassName = resolvedClass->GetName();
+                    OutFileInfo.ClassName = resolvedClass->GetName();
                 }
             }
         }
         else
         {
-            // Legacy format: treat value as class name directly
-            OutClassName = typeFieldValue;
+            OutFileInfo.ClassName = typeFieldValue;
         }
     }
 
-    if (const FXmlNode* idNode = metadataNode->FindChildNode(KEY_ID))
+    if (const FXmlNode* idNode = fileInfoNode->FindChildNode(KEY_ID))
     {
-        OutId.ParseString(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(idNode->GetContent()));
+        OutFileInfo.Id.ParseString(FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(idNode->GetContent()));
     }
-    if (const FXmlNode* versionNode = metadataNode->FindChildNode(KEY_VERSION))
+    if (const FXmlNode* versionNode = fileInfoNode->FindChildNode(KEY_VERSION))
     {
-        OutVersion = FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(versionNode->GetContent());
+        OutFileInfo.Version = FSGDynamicTextAssetVersion::ParseFromString(
+            FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(versionNode->GetContent()));
     }
-    if (const FXmlNode* userFacingIdNode = metadataNode->FindChildNode(KEY_USER_FACING_ID))
+    if (const FXmlNode* userFacingIdNode = fileInfoNode->FindChildNode(KEY_USER_FACING_ID))
     {
-        OutUserFacingId = FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(userFacingIdNode->GetContent());
+        OutFileInfo.UserFacingId = FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(userFacingIdNode->GetContent());
+    }
+    if (const FXmlNode* formatVersionNode = fileInfoNode->FindChildNode(KEY_FILE_FORMAT_VERSION))
+    {
+        OutFileInfo.FileFormatVersion = FSGDynamicTextAssetVersion::ParseFromString(
+            FSGDynamicTextAssetXmlSerializerInternals::XmlUnescape(formatVersionNode->GetContent()));
     }
 
-    return OutAssetTypeId.IsValid() || !OutClassName.IsEmpty();
+    OutFileInfo.bIsValid = OutFileInfo.AssetTypeId.IsValid() || !OutFileInfo.ClassName.IsEmpty();
+    return OutFileInfo.bIsValid;
 }
 
 bool FSGDynamicTextAssetXmlSerializer::UpdateFieldsInPlace(FString& InOutContents, const TMap<FString, FString>& FieldUpdates) const
@@ -965,9 +1065,9 @@ bool FSGDynamicTextAssetXmlSerializer::UpdateFieldsInPlace(FString& InOutContent
         return false;
     }
 
-    // Use targeted regex replacement on the metadata block for each field.
+    // Use targeted regex replacement on the file information block for each field.
     // This avoids round-tripping through a full parse+rebuild which would lose
-    // formatting. The metadata elements are simple scalar leaf nodes with no
+    // formatting. The file information elements are simple scalar leaf nodes with no
     // nested content, so regex replacement is safe and exact.
     bool bAnyUpdated = false;
     for (const TPair<FString, FString>& update : FieldUpdates)
@@ -984,13 +1084,17 @@ bool FSGDynamicTextAssetXmlSerializer::UpdateFieldsInPlace(FString& InOutContent
         {
             // Use non-regex simple replacement to find the exact pattern:
             // find <key>OLD</key> and replace with <key>NEW</key>.
-            // This is safe because metadata values are leaf text nodes with no children.
+            // This is safe because file information values are leaf text nodes with no children.
             const FXmlFile xmlFile(InOutContents, EConstructMethod::ConstructFromBuffer);
             if (xmlFile.IsValid())
             {
                 const FXmlNode* rootNode = xmlFile.GetRootNode();
-                const FXmlNode* metadataNode = rootNode ? rootNode->FindChildNode(KEY_METADATA) : nullptr;
-                const FXmlNode* fieldNode = metadataNode ? metadataNode->FindChildNode(update.Key) : nullptr;
+                const FXmlNode* fileInfoNode = rootNode ? rootNode->FindChildNode(KEY_FILE_INFORMATION) : nullptr;
+                if (!fileInfoNode && rootNode)
+                {
+                    fileInfoNode = rootNode->FindChildNode(KEY_METADATA_LEGACY);
+                }
+                const FXmlNode* fieldNode = fileInfoNode ? fileInfoNode->FindChildNode(update.Key) : nullptr;
                 if (fieldNode)
                 {
                     // Build the exact old and new element strings
@@ -1032,16 +1136,152 @@ FString FSGDynamicTextAssetXmlSerializer::GetDefaultFileContent(const UClass* Dy
     }
 
     return FString::Printf(
-        TEXT("%s<%s>\n%s<%s>\n%s<%s>%s</%s>\n%s<%s>1.0.0</%s>\n%s<%s>%s</%s>\n%s<%s>%s</%s>\n%s</%s>\n%s<%s/>\n</%s>\n"),
+        TEXT("%s<%s>\n%s<%s>\n%s<%s>%s</%s>\n%s<%s>1.0.0</%s>\n%s<%s>%s</%s>\n%s<%s>%s</%s>\n%s<%s>%s</%s>\n%s</%s>\n%s<%s/>\n</%s>\n"),
         *FSGDynamicTextAssetXmlSerializerInternals::XML_DECLARATION,
         *FSGDynamicTextAssetXmlSerializerInternals::XML_ROOT_TAG,
-        *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_METADATA,
+        *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_FILE_INFORMATION,
         *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_TYPE, *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(typeString), *KEY_TYPE,
         *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_VERSION, *KEY_VERSION,
         *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_ID, *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(Id.ToString()), *KEY_ID,
         *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_USER_FACING_ID, *FSGDynamicTextAssetXmlSerializerInternals::XmlEscape(UserFacingId), *KEY_USER_FACING_ID,
-        *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_METADATA,
+        *FSGDynamicTextAssetXmlSerializerInternals::Indent(2), *KEY_FILE_FORMAT_VERSION, *GetFileFormatVersion().ToString(), *KEY_FILE_FORMAT_VERSION,
+        *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_FILE_INFORMATION,
         *FSGDynamicTextAssetXmlSerializerInternals::Indent(1), *KEY_DATA,
         *FSGDynamicTextAssetXmlSerializerInternals::XML_ROOT_TAG
     );
+}
+
+bool FSGDynamicTextAssetXmlSerializer::ExtractSGDTAssetBundles(const FString& InString, FSGDynamicTextAssetBundleData& OutBundleData) const
+{
+    OutBundleData.Reset();
+
+    if (InString.IsEmpty())
+    {
+        return false;
+    }
+
+    FXmlFile xmlFile(InString, EConstructMethod::ConstructFromBuffer);
+    if (!xmlFile.IsValid())
+    {
+        return false;
+    }
+
+    const FXmlNode* rootNode = xmlFile.GetRootNode();
+    if (!rootNode)
+    {
+        return false;
+    }
+
+    const FXmlNode* bundlesNode = rootNode->FindChildNode(KEY_SGDT_ASSET_BUNDLES);
+    if (!bundlesNode)
+    {
+        return false;
+    }
+
+    for (const FXmlNode* bundleNode : bundlesNode->GetChildrenNodes())
+    {
+        if (bundleNode->GetTag() != TEXT("bundle"))
+        {
+            continue;
+        }
+
+        const FString bundleNameStr = bundleNode->GetAttribute(TEXT("name"));
+        if (bundleNameStr.IsEmpty())
+        {
+            continue;
+        }
+
+        const FName bundleName = FName(*bundleNameStr);
+
+        FSGDynamicTextAssetBundle& bundle = OutBundleData.Bundles.AddDefaulted_GetRef();
+        bundle.BundleName = bundleName;
+
+        for (const FXmlNode* entryNode : bundleNode->GetChildrenNodes())
+        {
+            if (entryNode->GetTag() != TEXT("entry"))
+            {
+                continue;
+            }
+
+            const FString propertyName = entryNode->GetAttribute(TEXT("property"));
+            const FString pathStr = entryNode->GetAttribute(TEXT("path"));
+
+            if (!propertyName.IsEmpty() && !pathStr.IsEmpty())
+            {
+                bundle.Entries.Emplace(FSoftObjectPath(pathStr), FName(*propertyName));
+            }
+        }
+    }
+
+    return OutBundleData.HasBundles();
+}
+
+bool FSGDynamicTextAssetXmlSerializer::UpdateFileFormatVersion(FString& InOutFileContents,
+    const FSGDynamicTextAssetVersion& NewVersion) const
+{
+    // Match <fileFormatVersion>X.Y.Z</fileFormatVersion> with flexible whitespace
+    const FRegexPattern pattern(TEXT("<fileFormatVersion>\\s*[0-9]+\\.[0-9]+\\.[0-9]+\\s*</fileFormatVersion>"));
+    FRegexMatcher matcher(pattern, InOutFileContents);
+
+    if (matcher.FindNext())
+    {
+        const FString replacement = FString::Printf(TEXT("<fileFormatVersion>%s</fileFormatVersion>"), *NewVersion.ToString());
+        const int32 matchBegin = matcher.GetMatchBeginning();
+        const int32 matchEnd = matcher.GetMatchEnding();
+
+        InOutFileContents = InOutFileContents.Left(matchBegin) + replacement + InOutFileContents.Mid(matchEnd);
+        return true;
+    }
+
+    // Field not found - insert it before the closing tag of the file information block
+    const FString closingNew = FString::Printf(TEXT("</%s>"), *KEY_FILE_INFORMATION);
+    const FString closingLegacy = FString::Printf(TEXT("</%s>"), *KEY_METADATA_LEGACY);
+
+    int32 insertPos = InOutFileContents.Find(closingNew);
+    if (insertPos == INDEX_NONE)
+    {
+        insertPos = InOutFileContents.Find(closingLegacy);
+    }
+
+    if (insertPos != INDEX_NONE)
+    {
+        // Walk back from the closing tag to the start of its line so the new
+        // element is inserted on its own line with correct depth-2 indentation
+        // instead of appending to the existing leading whitespace.
+        int32 lineStart = insertPos;
+        while (lineStart > 0 && InOutFileContents[lineStart - 1] != TEXT('\n'))
+        {
+            lineStart--;
+        }
+
+        const FString insertion = FString::Printf(TEXT("%s<%s>%s</%s>\n"),
+            *FSGDynamicTextAssetXmlSerializerInternals::Indent(2),
+            *KEY_FILE_FORMAT_VERSION, *NewVersion.ToString(), *KEY_FILE_FORMAT_VERSION);
+
+        InOutFileContents = InOutFileContents.Left(lineStart) + insertion + InOutFileContents.Mid(lineStart);
+        return true;
+    }
+
+    UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+        TEXT("FSGDynamicTextAssetXmlSerializer::UpdateFileFormatVersion: Could not find or insert fileFormatVersion element"));
+    return false;
+}
+
+bool FSGDynamicTextAssetXmlSerializer::MigrateFileFormat(FString& InOutFileContents,
+    const FSGDynamicTextAssetVersion& CurrentFormatVersion,
+    const FSGDynamicTextAssetVersion& TargetFormatVersion) const
+{
+    if (CurrentFormatVersion == TargetFormatVersion)
+    {
+        return true;
+    }
+
+    // Migration from 1.x to 2.x: rename <metadata> tags to <sgFileInformation>
+    if (CurrentFormatVersion.Major < 2 && TargetFormatVersion.Major >= 2)
+    {
+        InOutFileContents.ReplaceInline(TEXT("<metadata>"), *FString::Printf(TEXT("<%s>"), *KEY_FILE_INFORMATION));
+        InOutFileContents.ReplaceInline(TEXT("</metadata>"), *FString::Printf(TEXT("</%s>"), *KEY_FILE_INFORMATION));
+    }
+
+    return true;
 }

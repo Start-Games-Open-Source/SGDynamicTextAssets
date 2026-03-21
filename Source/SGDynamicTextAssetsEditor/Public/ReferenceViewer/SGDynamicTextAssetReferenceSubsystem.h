@@ -4,16 +4,14 @@
 
 #include "CoreMinimal.h"
 
-#include "AssetRegistry/AssetData.h"
-#include "Containers/Ticker.h"
 #include "EditorSubsystem.h"
 #include "Core/SGDynamicTextAssetEnums.h"
 #include "Core/SGDynamicTextAssetId.h"
-#include "Widgets/Notifications/SNotificationList.h"
 
 #include "SGDynamicTextAssetReferenceSubsystem.generated.h"
 
 class USGDynamicTextAsset;
+class USGDynamicTextAssetScanSubsystem;
 
 /**
  * Describes a single reference link between an asset and a dynamic text asset.
@@ -258,11 +256,11 @@ public:
 
 	/** Returns true if the cache is currently being rebuilt */
 	UFUNCTION(BlueprintPure, Category = "Dynamic Text Asset|References")
-	bool IsScanningInProgress() const { return bScanningInProgress; }
+	bool IsScanningInProgress() const;
 
 	/** Returns true if the cache has been populated at least once */
 	UFUNCTION(BlueprintPure, Category = "Dynamic Text Asset|References")
-	bool IsCacheReady() const { return bCachePopulated && !bScanningInProgress; }
+	bool IsCacheReady() const;
 
 	/** Delegate broadcast when async scanning completes */
 	DECLARE_MULTICAST_DELEGATE(FOnReferenceScanComplete);
@@ -272,10 +270,25 @@ public:
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnReferenceScanProgress, int32 /*Current*/, int32 /*Total*/, const FText& /*StatusText*/);
 	FOnReferenceScanProgress OnReferenceScanProgress;
 
+	/** Registers scan phases with the scan subsystem for Blueprint, Level, and DTA reference scanning. */
+	void RegisterScanPhases();
+
 private:
 
-	/** Processes a batch of assets during async scanning. Returns true to continue, false when done. */
-	bool ProcessScanBatch(float DeltaTime);
+	/** Phase setup callbacks: populate pending work queues for each phase. */
+	void SetupBlueprintScanPhase();
+	void SetupLevelScanPhase();
+	void SetupDTAReferenceScanPhase();
+
+	/** Phase process callbacks: process one item per call. Returns true if more remain. */
+	bool ProcessOneBlueprintItem();
+	bool ProcessOneLevelItem();
+	bool ProcessOneDTAReferenceItem();
+
+	/** Phase completion callbacks. */
+	void OnBlueprintPhaseComplete();
+	void OnLevelPhaseComplete();
+	void OnDTAReferencePhaseComplete();
 
 	/** Processes a single Blueprint asset for references */
 	void ProcessBlueprintAsset(const FAssetData& AssetData);
@@ -380,9 +393,6 @@ private:
 	/** Whether the cache has been populated at least once */
 	uint8 bCachePopulated : 1;
 
-	/** Whether an async scan is currently in progress */
-	uint8 bScanningInProgress : 1;
-
 	/** Whether to perform a full rescan (ignore timestamps) */
 	uint8 bForceFullRescan : 1;
 
@@ -394,27 +404,6 @@ private:
 
 	/** Pending Dynamic Text Asset files to scan during async operation */
 	TArray<FString> PendingDynamicTextAssetFiles;
-
-	/** Total number of items to scan for progress reporting */
-	int32 TotalItemsToScan = 0;
-
-	/** Number of items scanned so far */
-	int32 ItemsScanned = 0;
-
-	/** Current scan phase (0=Blueprints, 1=Levels, 2=DynamicTextAssets) */
-	int32 CurrentScanPhase = 0;
-
-	/** Handle to the scan ticker */
-	FTSTicker::FDelegateHandle ScanTickerHandle;
-
-	/** Toast notification item for progress display */
-	TSharedPtr<SNotificationItem> ScanNotificationItem = nullptr;
-
-	/** Shows or updates the toast notification with current progress */
-	void UpdateScanNotification(const FText& StatusText, float Progress);
-
-	/** Closes the scan notification */
-	void CloseScanNotification(bool bSuccess);
 
 	/** Determines the content type for an asset path */
 	ESGReferenceCacheContentType GetContentTypeForPath(const FString& AssetPath) const;

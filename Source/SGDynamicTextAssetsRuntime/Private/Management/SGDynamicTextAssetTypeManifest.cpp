@@ -205,7 +205,7 @@ void FSGDynamicTextAssetTypeManifest::AddType(const FSGDynamicTextAssetTypeId& T
 		return;
 	}
 
-	// Check if type already exists — replace it
+	// Check if type already exists  - replace it
 	const int32* existingIndex = TypeIdIndex.Find(TypeId);
 	if (existingIndex != nullptr)
 	{
@@ -292,11 +292,11 @@ void FSGDynamicTextAssetTypeManifest::GetAllEffectiveTypes(
 	}
 
 	// Add server-only entries (new types not in local manifest)
-	for (const auto& [typeId, overlayEntry] : ServerOverlayEntries)
+	for (const TPair<FSGDynamicTextAssetTypeId, FSGDynamicTextAssetTypeManifestEntry>& pair : ServerOverlayEntries)
 	{
-		if (!processedIds.Contains(typeId) && !overlayEntry.ClassName.IsEmpty())
+		if (!processedIds.Contains(pair.Key) && !pair.Value.ClassName.IsEmpty())
 		{
-			OutEntries.Add(overlayEntry);
+			OutEntries.Add(pair.Value);
 		}
 	}
 }
@@ -400,13 +400,13 @@ void FSGDynamicTextAssetTypeManifest::ApplyServerOverrides(const TSharedPtr<FJso
 			continue;
 		}
 
-		// ClassName — empty means "disable this type"
+		// ClassName  - empty means "disable this type"
 		FString className;
 		typeObject->TryGetStringField(KEY_CLASS_NAME, className);
 
 		if (className.IsEmpty())
 		{
-			// Empty className signals removal/disable — store a sentinel entry
+			// Empty className signals removal/disable  - store a sentinel entry
 			FSGDynamicTextAssetTypeManifestEntry disabledEntry;
 			disabledEntry.TypeId = typeId;
 			ServerOverlayEntries.Add(typeId, MoveTemp(disabledEntry));
@@ -506,7 +506,7 @@ bool FSGDynamicTextAssetTypeManifest::ParseTypeEntry(const TSharedPtr<FJsonObjec
 	OutEntry.ClassName = className;
 
 	// Use the full class path for reliable TSoftClassPtr resolution in packaged builds.
-	// Bare class names (e.g., "SGDynamicTextAsset") are not valid FSoftObjectPath values —
+	// Bare class names (e.g., "SGDynamicTextAsset") are not valid FSoftObjectPath values  -
 	// the full path (e.g., "/Script/SGDynamicTextAssetsRuntime.SGDynamicTextAsset") is required.
 	FString classPath;
 	if (EntryObject->TryGetStringField(KEY_CLASS_PATH, classPath) && !classPath.IsEmpty())

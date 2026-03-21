@@ -43,8 +43,9 @@ The core interface that all serializers implement. Defined in `SGDynamicTextAsse
 | `SerializeProvider` | `bool SerializeProvider(const ISGDynamicTextAssetProvider*, FString&) const` | Serializes a provider to string |
 | `DeserializeProvider` | `bool DeserializeProvider(const FString&, ISGDynamicTextAssetProvider*, bool&) const` | Deserializes a string into a provider |
 | `ValidateStructure` | `bool ValidateStructure(const FString&, FString&) const` | Validates format structure without creating objects |
-| `ExtractMetadata` | `bool ExtractMetadata(const FString&, FSGDynamicTextAssetId&, FString&, FString&, FString&, FSGDynamicTextAssetTypeId&) const` | Extracts metadata without full deserialization |
+| `ExtractFileInfo` | `bool ExtractFileInfo(const FString&, FSGDynamicTextAssetFileInfo&) const` | Extracts file information without full deserialization |
 | `UpdateFieldsInPlace` | `bool UpdateFieldsInPlace(FString&, const TMap<FString, FString>&) const` | Patches metadata fields in a serialized string |
+| `GetFileFormatVersion` | `FSGDynamicTextAssetVersion GetFileFormatVersion() const` | Returns the serializer's current file format version |
 | `GetDefaultFileContent` | `FString GetDefaultFileContent(const UClass*, const FSGDynamicTextAssetId&, const FString&) const` | Generates initial file content for new assets |
 
 ### Virtual Methods with Default Implementations
@@ -53,6 +54,8 @@ The core interface that all serializers implement. Defined in `SGDynamicTextAsse
 |--------|-------------|
 | `GetIconBrush` | Returns the editor icon brush (editor-only, defaults to generic object icon) |
 | `GetFormatName_String` | Convenience `FString` version of `GetFormatName()` |
+| `MigrateFileFormat` | Migrates file content between format versions. Default returns true (no structural changes). Override when format structure changes between versions. |
+| `UpdateFileFormatVersion` | Updates the `fileFormatVersion` field in raw file contents. Each serializer must override this for its specific format syntax. Called by the migration pipeline after structural migration succeeds. |
 
 ### Serializer Type IDs
 
@@ -76,17 +79,19 @@ Metadata keys are defined as static `FString` constants on `ISGDynamicTextAssetS
 
 | Constant | Value | Usage |
 |----------|-------|-------|
-| `KEY_METADATA` | `"metadata"` | Wrapper block for identity fields |
+| `KEY_FILE_INFORMATION` | `"sgFileInformation"` | Wrapper block for identity fields (renamed from `KEY_METADATA`/`"metadata"` in format v2.0.0) |
+| `KEY_METADATA_LEGACY` | `"metadata"` | Legacy wrapper key for backward compatibility with pre-2.0.0 files |
 | `KEY_TYPE` | `"type"` | Class type name |
 | `KEY_VERSION` | `"version"` | Semantic version string |
 | `KEY_ID` | `"id"` | GUID identifier |
 | `KEY_USER_FACING_ID` | `"userfacingid"` | Human-readable identifier |
+| `KEY_FILE_FORMAT_VERSION` | `"fileFormatVersion"` | File format structural version (tracks serializer format changes, not asset data changes) |
 | `KEY_DATA` | `"data"` | Property data block |
 
 Each serializer format determines how these keys are structurally represented:
-- **JSON:** `"metadata": { ... }` and `"data": { ... }` as JSON objects
-- **XML:** `<metadata>...</metadata>` and `<data>...</data>` as XML elements
-- **YAML:** `metadata:` and `data:` as YAML mappings
+- **JSON:** `"sgFileInformation": { ... }` and `"data": { ... }` as JSON objects
+- **XML:** `<sgFileInformation>...</sgFileInformation>` and `<data>...</data>` as XML elements
+- **YAML:** `sgFileInformation:` and `data:` as YAML mappings
 
 ## FSGDynamicTextAssetSerializerBase
 

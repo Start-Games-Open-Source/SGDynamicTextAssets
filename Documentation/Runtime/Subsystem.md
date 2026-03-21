@@ -148,12 +148,88 @@ void ClearCache();
 
 Use `ClearCache()` with caution or sparingly, existing `FSGDynamicTextAssetRef` resolutions will return `nullptr` until the objects are reloaded.
 
+## Asset Bundle API
+
+The subsystem provides lower-level bundle loading for cases where you need direct control over bundle loading independently of DTA loading. See [Asset Bundles](../Core/AssetBundles.md) for the full bundle system.
+
+### Load a Single DTA's Bundle
+
+```cpp
+bool LoadSGDTAssetBundle(const FSGDynamicTextAssetId& Id, FName BundleName,
+    FStreamableDelegate OnComplete = FStreamableDelegate());
+```
+
+Retrieves the cached provider via `GetDynamicTextAsset(Id)`, extracts paths from `GetSGDTAssetBundleData().GetPathsForBundle()`, and uses `FStreamableManager` to async-load them. Returns true if an async load was initiated.
+
+### Load a Bundle Across All Cached DTAs
+
+```cpp
+int32 LoadSGDTAssetBundleForAll(FName BundleName,
+    FStreamableDelegate OnComplete = FStreamableDelegate());
+```
+
+Iterates all cached providers, collects paths for the named bundle, and batch-loads them. Returns the number of DTAs that had matching bundles.
+
+### Query Bundle Data
+
+```cpp
+// C++ pointer access (returns nullptr if not cached)
+const FSGDynamicTextAssetBundleData* GetSGDTAssetBundleData(const FSGDynamicTextAssetId& Id) const;
+
+// Blueprint-accessible copy version
+UFUNCTION(BlueprintPure, Category = "Dynamic Text Asset|Bundles")
+bool GetSGDTAssetBundleDataCopy(const FSGDynamicTextAssetId& Id,
+    FSGDynamicTextAssetBundleData& OutBundleData) const;
+
+// Gather all paths for a bundle across the entire cache
+UFUNCTION(BlueprintPure, Category = "Dynamic Text Asset|Bundles")
+void GetAllPathsForSGDTBundle(FName BundleName, TArray<FSoftObjectPath>& OutPaths) const;
+```
+
+## Server Type Override API
+
+The subsystem exposes server-driven type override management for runtime builds.
+
+```cpp
+// Apply server-provided type overrides to the type registry
+void ApplyServerTypeOverrides(const TSharedPtr<FJsonObject>& ServerData);
+
+// Clear all server type overrides, reverting to local-only type resolution
+void ClearServerTypeOverrides();
+
+// Fetch overrides from the server interface and apply them
+void FetchAndApplyServerTypeOverrides(FOnServerTypeOverridesComplete OnComplete = FOnServerTypeOverridesComplete());
+```
+
+These are no-ops in editor builds (server overlay is runtime-only). See [Type Manifest System](../Advanced/TypeManifestSystem.md) for details on the override JSON format.
+
+## Instanced Class Tracking
+
+The subsystem tracks `UClass` references used by instanced sub-objects on cached DTAs. This prevents garbage collection from collecting classes while any cached DTA still uses them.
+
+```cpp
+// Total unique instanced object UClass references across all cached DTAs
+UFUNCTION(BlueprintPure, Category = "Dynamic Text Asset|Diagnostics")
+int32 GetTrackedInstancedClassCount() const;
+
+// Deduplicated set of all tracked UClass references
+UFUNCTION(BlueprintPure, Category = "Dynamic Text Asset|Diagnostics")
+TSet<UClass*> GetAllTrackedInstancedClasses() const;
+
+// Tracked UClass references for a specific DTA
+UFUNCTION(BlueprintPure, Category = "Dynamic Text Asset|Diagnostics")
+TArray<UClass*> GetTrackedInstancedClassesForId(const FSGDynamicTextAssetId& Id) const;
+```
+
+When a DTA is removed from cache via `RemoveFromCache()` and its instanced object classes drop to zero references, the `OnInstancedClassesReleased` delegate broadcasts with an `FSGInstancedClassReleaseContext` containing the removed asset ID, released classes, and remaining tracked class count. This is not broadcast during `ClearCache()` (bulk/shutdown operation).
+
 ## Delegates
 
 | Delegate | Signature | Description |
 |----------|-----------|-------------|
 | `FOnDynamicTextAssetLoaded` | `(const TScriptInterface<ISGDynamicTextAssetProvider>& Provider, bool bSuccess)` | Callback for async load completion |
 | `FOnDynamicTextAssetCached` | `(const TScriptInterface<ISGDynamicTextAssetProvider>& Provider)` | Broadcast when a provider is added to cache. Dynamic multicast, bindable in Blueprints via `OnDynamicTextAssetCached`. |
+| `FOnInstancedClassesReleased` | `(const FSGInstancedClassReleaseContext& Context)` | Broadcast when instanced object classes drop to zero references after a DTA is removed via `RemoveFromCache`. Dynamic multicast, bindable in Blueprints. |
 
 ## Server Interface Integration
 

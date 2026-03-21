@@ -372,4 +372,25 @@ Sub-object soft paths (e.g., references to level actors like `/Game/Lvl_Basic.Lv
 
 See [Error Handling and Debugging](../Advanced/ErrorHandlingAndDebugging.md) for more on hard reference validation in practice.
 
+## Asset Bundle Soft Reference Validation
+
+Soft reference properties tagged with `meta=(AssetBundles="...")` are valid and expected. The hard reference validator does not flag them, since `TSoftObjectPtr` and `TSoftClassPtr` are always allowed. Asset bundle metadata is extracted from these properties during serialization and loading to support batch async loading.
+
+For details on the asset bundle system, see [Section 13 of the Technical Design](../../SGDynamicTextAssets_Technical_Design.md) and the serialization format docs:
+- [JSON Format - Asset Bundle Metadata](../Serialization/JsonFormat.md#asset-bundle-metadata)
+- [XML Format - Asset Bundle Metadata](../Serialization/XmlFormat.md#asset-bundle-metadata)
+- [YAML Format - Asset Bundle Metadata](../Serialization/YamlFormat.md#asset-bundle-metadata)
+
+## Blueprint Soft Reference Validation
+
+On-save validation detects `TSoftObjectPtr` properties that reference `UBlueprint` assets and reports a **warning**. `UBlueprint` objects are stripped during cooking (only `UBlueprintGeneratedClass` survives in packaged builds), so a `TSoftObjectPtr` pointing to a Blueprint asset resolves to null at runtime.
+
+The validation uses `FAssetData::IsInstanceOf<UBlueprint>(EResolveClass::Yes)` to detect Blueprint references, which handles class redirectors and catches all Blueprint subclasses (`UAnimBlueprint`, `UWidgetBlueprint`, etc.).
+
+**Suggested fixes shown to the user:**
+- Use `TSoftClassPtr` to reference the Blueprint's generated class instead
+- Reference a non-Blueprint asset (DataAsset, Material, Texture, etc.)
+
+This check runs as part of `Native_ValidateDynamicTextAsset()` in the `ValidateSoftPathsInProperty` walker, which recurses into structs, arrays, maps, and instanced sub-objects.
+
 [Back to Table of Contents](../TableOfContents.md)

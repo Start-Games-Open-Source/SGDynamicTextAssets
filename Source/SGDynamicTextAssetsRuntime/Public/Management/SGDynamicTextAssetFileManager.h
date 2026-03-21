@@ -9,7 +9,7 @@ class USGDynamicTextAsset;
 class FSGDynamicTextAssetCookManifest;
 class ISGDynamicTextAssetSerializer;
 
-struct FSGDynamicTextAssetFileMetadata;
+struct FSGDynamicTextAssetFileInfo;
 
 DECLARE_DELEGATE_RetVal_FourParams(FString, FSGDataGenerateDefaultContentDelegate, const UClass*,
     const FSGDynamicTextAssetId&, const FString&, TSharedRef<ISGDynamicTextAssetSerializer>);
@@ -120,13 +120,13 @@ public:
     static FString SanitizeUserFacingId(const FString& UserFacingId);
 
     /**
-     * Extracts metadata from a dynamic text asset file without fully loading it.
-     * Reads only the header/metadata section of the JSON.
-     * 
+     * Extracts file information from a dynamic text asset file without fully loading it.
+     * Reads only the header/file information section of the file.
+     *
      * @param FilePath Absolute path to the file
-     * @return Metadata struct (check bIsValid)
+     * @return File info struct (check bIsValid)
      */
-    static FSGDynamicTextAssetFileMetadata ExtractMetadataFromFile(const FString& FilePath);
+    static FSGDynamicTextAssetFileInfo ExtractFileInfoFromFile(const FString& FilePath);
 
     /**
      * Ensures the folder structure exists for a given class.
@@ -145,7 +145,7 @@ public:
      * Pass the TypeId to FindSerializerForTypeId() to obtain the correct deserializer.
      *
      * @param FilePath             Absolute path to the file
-     * @param OutContents          Output string — always a text payload after return
+     * @param OutContents          Output string  - always a text payload after return
      * @param OutSerializerTypeId  For binary files: TypeId from the binary header.
      *                             For text files: 0. Pass nullptr to ignore.
      * @return True if file was read successfully
@@ -213,11 +213,11 @@ public:
      * Converts a dynamic text asset file from one format to another.
      * Reads the source file, deserializes into an in-memory provider instance,
      * re-serializes using the target format's serializer, writes the new file,
-     * and deletes the old file. All metadata (GUID, UserFacingId, Version,
+     * and deletes the old file. All file information (GUID, UserFacingId, Version,
      * AssetTypeId) is preserved through the round-trip.
      *
      * Source control operations (mark-for-add, mark-for-delete) are NOT handled
-     * by this method — the caller is responsible for managing source control state.
+     * by this method  - the caller is responsible for managing source control state.
      *
      * @param SourceFilePath   Absolute path to the source file
      * @param TargetExtension  Target format extension (e.g., ".dta.xml", ".dta.yaml")
@@ -415,7 +415,7 @@ private:
     /** Registered serializers keyed by file extension (case-insensitive) */
     static TMap<FString, TSharedRef<ISGDynamicTextAssetSerializer>> REGISTERED_SERIALIZERS;
 
-    /** Registered serializers keyed by integer type ID — used for binary file routing */
+    /** Registered serializers keyed by integer type ID  - used for binary file routing */
     static TMap<uint32, TSharedRef<ISGDynamicTextAssetSerializer>> REGISTERED_SERIALIZERS_BY_ID;
 };
 
