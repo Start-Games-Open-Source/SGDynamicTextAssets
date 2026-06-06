@@ -20,25 +20,25 @@ All tests are in `SGDynamicTextAssetsEditor/Private/Tests/`. They are compiled o
 ```
 Source/SGDynamicTextAssetsEditor/Private/Tests/
   SGDynamicTextAssetUnitTest.h                    # Minimal concrete subclass for testing
-  SGDynamicTextAssetXmlUnitTest.h                 # Base test class for XML serializer tests
-  SGDynamicTextAssetYamlUnitTest.h                # Base test class for YAML serializer tests
-  SGDynamicTextAssetVersionTests.cpp
-  SGDynamicTextAssetValidationResultTests.cpp
-  SGDynamicTextAssetRefTests.cpp
-  SGDynamicTextAssetJsonSerializerTests.cpp
-  SGDynamicTextAssetBinarySerializerTests.cpp
-  SGDynamicTextAssetXmlSerializerTests.cpp
-  SGDynamicTextAssetYamlSerializerTests.cpp
-  SGDynamicTextAssetFileManagerTests.cpp
-  SGDynamicTextAssetCookManifestTests.cpp
-  SGDynamicTextAssetStaticsTests.cpp
-  SGDynamicTextAssetTypeIdTests.cpp
-  SGDynamicTextAssetTypeManifestTests.cpp
-  SGDynamicTextAssetTypeRegistryTests.cpp
-  SGDynamicTextAssetProviderTests.cpp
-  SGDynamicTextAssetHardReferenceTests.cpp
-  SGDynamicTextAssetSerializerRegistryTests.cpp
-  SGDynamicTextAssetServerNullInterfaceTests.cpp
+  SGDTAXmlUnitTest.h                 # Base test class for XML serializer tests
+  SGDTAYamlUnitTest.h                # Base test class for YAML serializer tests
+  SGDTAVersionTests.cpp
+  SGDTAValidationResultTests.cpp
+  SGDTARefTests.cpp
+  SGDTAJsonSerializerTests.cpp
+  SGDTABinarySerializerTests.cpp
+  SGDTAXmlSerializerTests.cpp
+  SGDTAYamlSerializerTests.cpp
+  SGDTAFileManagerTests.cpp
+  SGDTACookManifestTests.cpp
+  SGDTAStaticsTests.cpp
+  SGDTATypeIdTests.cpp
+  SGDTATypeManifestTests.cpp
+  SGDTATypeRegistryTests.cpp
+  SGDTAProviderTests.cpp
+  SGDTAHardReferenceTests.cpp
+  SGDTASerializerRegistryTests.cpp
+  SGDTAServerNullInterfaceTests.cpp
 ```
 
 ## Test Data Objects
@@ -118,7 +118,7 @@ Content hash written on save, content hash validates on load, tamper detection, 
 
 ### SGDynamicTextAssetTypeIdTests
 
-`FSGAssetTypeId` construction, validity checks, equality and inequality operators, hashing for use in `TMap`/`TSet`, serialization to and from strings.
+`FSGDynamicTextAssetTypeId` construction, validity checks, equality and inequality operators, hashing for use in `TMap`/`TSet`, serialization to and from strings.
 
 ### SGDynamicTextAssetTypeManifestTests
 

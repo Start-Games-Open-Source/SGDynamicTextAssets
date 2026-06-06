@@ -3,7 +3,7 @@
 #include "Editor/SSGDynamicTextAssetIcon.h"
 
 #include "SlateOptMacros.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
+#include "Serialization/SGDTASerializer.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Layout/SBox.h"

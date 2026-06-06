@@ -3,8 +3,8 @@
 #include "Customization/SGDTASerializerFormatCustomization.h"
 
 #include "DetailWidgetRow.h"
-#include "Management/SGDynamicTextAssetFileManager.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
+#include "Management/SGDTAFileManager.h"
+#include "Serialization/SGDTASerializer.h"
 #include "Widgets/Images/SImage.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SComboButton.h"

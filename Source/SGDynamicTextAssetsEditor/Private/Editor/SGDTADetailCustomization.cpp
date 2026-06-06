@@ -6,11 +6,11 @@
 #include "DetailCategoryBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"
-#include "Editor/SSGDynamicTextAssetIdentityBlock.h"
+#include "Editor/SSGDTAIdentityBlock.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
-#include "SGDynamicTextAssetEditorLogs.h"
+#include "SGDTAEditorLogs.h"
 #include "Statics/SGDynamicTextAssetStatics.h"
 #include "UObject/UnrealType.h"
 

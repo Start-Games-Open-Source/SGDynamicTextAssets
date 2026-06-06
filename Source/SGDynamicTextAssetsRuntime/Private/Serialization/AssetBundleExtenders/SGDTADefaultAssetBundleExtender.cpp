@@ -5,9 +5,9 @@
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
+#include "Serialization/SGDTASerializer.h"
 #include "SGDynamicTextAssetLogs.h"
-#include "Statics/SGDynamicTextAssetConstants.h"
+#include "Statics/SGDTAConstants.h"
 #include "XmlFile.h"
 
 THIRD_PARTY_INCLUDES_START

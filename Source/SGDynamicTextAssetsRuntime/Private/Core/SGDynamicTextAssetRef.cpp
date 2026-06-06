@@ -8,13 +8,13 @@
 #include "Engine/GameInstance.h"
 #include "Engine/StreamableManager.h"
 #include "Engine/World.h"
-#include "Management/SGDynamicTextAssetFileManager.h"
+#include "Management/SGDTAFileManager.h"
 #include "Management/SGDynamicTextAssetFileInfo.h"
 #include "SGDynamicTextAssetLogs.h"
 #include "Subsystem/SGDynamicTextAssetSubsystem.h"
 
 #if WITH_EDITOR
-#include "Management/SGDynamicTextAssetEditorCache.h"
+#include "Management/SGDTAEditorCache.h"
 #endif
 
 bool FSGDynamicTextAssetRef::IsNull() const

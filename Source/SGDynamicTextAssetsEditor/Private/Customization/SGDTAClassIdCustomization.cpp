@@ -12,7 +12,7 @@
 #include "Management/SGDTASerializerExtenderRegistry.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Modules/ModuleManager.h"
-#include "SGDynamicTextAssetEditorLogs.h"
+#include "SGDTAEditorLogs.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SComboButton.h"

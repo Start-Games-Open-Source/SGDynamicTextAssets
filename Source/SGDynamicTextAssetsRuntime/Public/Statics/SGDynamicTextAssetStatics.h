@@ -11,7 +11,7 @@
 #include "Core/SGDTAClassId.h"
 #include "Core/ISGDynamicTextAssetProvider.h"
 #include "Core/SGDynamicTextAssetBundleData.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
+#include "Serialization/SGDTASerializer.h"
 #include "Core/SGDTASerializerFormat.h"
 #include "SGDynamicTextAssetDelegates.h"
 

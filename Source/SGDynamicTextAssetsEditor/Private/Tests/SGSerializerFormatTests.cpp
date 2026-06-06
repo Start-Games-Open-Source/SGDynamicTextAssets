@@ -3,9 +3,9 @@
 #include "Misc/AutomationTest.h"
 
 #include "Core/SGDTASerializerFormat.h"
-#include "Serialization/SGDynamicTextAssetJsonSerializer.h"
-#include "Serialization/SGDynamicTextAssetXmlSerializer.h"
-#include "Serialization/SGDynamicTextAssetYamlSerializer.h"
+#include "Serialization/SGDTAJsonSerializer.h"
+#include "Serialization/SGDTAXmlSerializer.h"
+#include "Serialization/SGDTAYamlSerializer.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
 

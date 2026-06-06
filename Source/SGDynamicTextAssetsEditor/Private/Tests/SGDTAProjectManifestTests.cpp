@@ -3,7 +3,7 @@
 #include "Misc/AutomationTest.h"
 
 #include "Management/SGDTAProjectManifest.h"
-#include "Management/SGDynamicTextAssetFileManager.h"
+#include "Management/SGDTAFileManager.h"
 #include "Core/SGDTASerializerFormat.h"
 #include "Core/SGDynamicTextAssetVersion.h"
 #include "Dom/JsonObject.h"

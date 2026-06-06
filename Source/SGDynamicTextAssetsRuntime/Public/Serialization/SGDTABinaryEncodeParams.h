@@ -8,7 +8,7 @@
 #include "Core/SGDynamicTextAssetId.h"
 #include "Core/SGDynamicTextAssetTypeId.h"
 #include "Core/SGDTASerializerFormat.h"
-#include "Settings/SGDynamicTextAssetSettings.h"
+#include "Settings/SGDTASettings.h"
 
 #include "SGDTABinaryEncodeParams.generated.h"
 

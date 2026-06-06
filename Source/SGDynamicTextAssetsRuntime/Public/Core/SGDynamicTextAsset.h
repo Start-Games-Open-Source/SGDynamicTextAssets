@@ -7,7 +7,7 @@
 #include "UObject/Object.h"
 #include "SGDynamicTextAssetId.h"
 #include "SGDynamicTextAssetVersion.h"
-#include "SGDynamicTextAssetValidationResult.h"
+#include "SGDTAValidationResult.h"
 #include "ISGDynamicTextAssetProvider.h"
 
 #include "SGDynamicTextAsset.generated.h"

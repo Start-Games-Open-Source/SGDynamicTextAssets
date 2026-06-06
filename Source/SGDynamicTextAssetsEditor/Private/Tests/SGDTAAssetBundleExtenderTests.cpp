@@ -13,12 +13,12 @@
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
-#include "Serialization/SGDynamicTextAssetJsonSerializer.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
-#include "Settings/SGDynamicTextAssetSettings.h"
-#include "Statics/SGDynamicTextAssetConstants.h"
+#include "Serialization/SGDTAJsonSerializer.h"
+#include "Serialization/SGDTASerializer.h"
+#include "Settings/SGDTASettings.h"
+#include "Statics/SGDTAConstants.h"
 #include "Statics/SGDynamicTextAssetStatics.h"
-#include "Tests/SGDynamicTextAssetBundleTestTypes.h"
+#include "Tests/SGDTABundleTestTypes.h"
 
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"

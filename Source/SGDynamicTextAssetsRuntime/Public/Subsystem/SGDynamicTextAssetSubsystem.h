@@ -8,7 +8,7 @@
 #include "Core/SGDynamicTextAssetId.h"
 #include "Core/SGDTASerializerFormat.h"
 #include "Engine/StreamableManager.h"
-#include "Server/ISGDynamicTextAssetServerInterface.h"
+#include "Server/ISGDTAServerInterface.h"
 #include "UObject/ScriptInterface.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "SGDynamicTextAssetDelegates.h"

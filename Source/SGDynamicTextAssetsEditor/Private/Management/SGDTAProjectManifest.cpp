@@ -2,9 +2,9 @@
 
 #include "Management/SGDTAProjectManifest.h"
 
-#include "SGDynamicTextAssetEditorLogs.h"
-#include "Management/SGDynamicTextAssetFileManager.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
+#include "SGDTAEditorLogs.h"
+#include "Management/SGDTAFileManager.h"
+#include "Serialization/SGDTASerializer.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Serialization/JsonReader.h"

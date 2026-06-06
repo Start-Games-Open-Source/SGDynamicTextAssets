@@ -7,7 +7,7 @@
 #include "Core/SGDTAClassId.h"
 #include "Core/SGDynamicTextAssetId.h"
 #include "Core/SGDynamicTextAssetVersion.h"
-#include "Core/SGDynamicTextAssetValidationResult.h"
+#include "Core/SGDTAValidationResult.h"
 #include "Core/SGDynamicTextAssetBundleData.h"
 #include "Dom/JsonObject.h"
 #include "SGDynamicTextAssetDelegates.h"

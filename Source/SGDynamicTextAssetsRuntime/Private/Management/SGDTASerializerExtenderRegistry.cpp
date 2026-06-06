@@ -3,7 +3,7 @@
 #include "Management/SGDTASerializerExtenderRegistry.h"
 
 #include "Management/SGDTAExtenderManifest.h"
-#include "Statics/SGDynamicTextAssetConstants.h"
+#include "Statics/SGDTAConstants.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "SGDynamicTextAssetLogs.h"

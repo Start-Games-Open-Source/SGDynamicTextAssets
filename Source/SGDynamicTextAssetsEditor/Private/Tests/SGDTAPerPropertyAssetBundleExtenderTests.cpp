@@ -6,9 +6,9 @@
 #include "Core/SGDynamicTextAssetBundleData.h"
 #include "Serialization/AssetBundleExtenders/SGDTADefaultAssetBundleExtender.h"
 #include "Serialization/AssetBundleExtenders/SGDTAPerPropertyAssetBundleExtender.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
-#include "Serialization/SGDynamicTextAssetSerializerBase.h"
-#include "Statics/SGDynamicTextAssetConstants.h"
+#include "Serialization/SGDTASerializer.h"
+#include "Serialization/SGDTASerializerBase.h"
+#include "Statics/SGDTAConstants.h"
 
 namespace SGDTAPerPropertyExtenderTestHelpers
 {

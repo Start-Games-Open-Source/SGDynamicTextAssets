@@ -2,8 +2,8 @@
 
 #include "Core/SGDTASerializerFormat.h"
 
-#include "Management/SGDynamicTextAssetFileManager.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
+#include "Management/SGDTAFileManager.h"
+#include "Serialization/SGDTASerializer.h"
 
 const FSGDTASerializerFormat FSGDTASerializerFormat::INVALID;
 

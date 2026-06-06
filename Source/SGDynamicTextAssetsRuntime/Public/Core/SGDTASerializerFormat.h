@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 
-#include "Statics/SGDynamicTextAssetConstants.h"
+#include "Statics/SGDTAConstants.h"
 
 #include "SGDTASerializerFormat.generated.h"
 

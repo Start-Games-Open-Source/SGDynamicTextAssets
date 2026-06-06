@@ -5,7 +5,7 @@
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Management/SGDTAExtenderManifestBinaryHeader.h"
-#include "Management/SGDynamicTextAssetCookManifestStringTable.h"
+#include "Management/SGDTACookManifestStringTable.h"
 #include "Misc/FileHelper.h"
 #include "Misc/SecureHash.h"
 #include "Serialization/JsonReader.h"

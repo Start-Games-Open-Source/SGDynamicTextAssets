@@ -12,8 +12,8 @@
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformFileManager.h"
-#include "Management/SGDynamicTextAssetFileManager.h"
-#include "Management/SGDynamicTextAssetTypeManifest.h"
+#include "Management/SGDTAFileManager.h"
+#include "Management/SGDTATypeManifest.h"
 #include "Misc/Paths.h"
 #include "SGDynamicTextAssetLogs.h"
 #include "Core/SGDTAClassId.h"
@@ -21,7 +21,7 @@
 #include "Serialization/AssetBundleExtenders/SGDTAAssetBundleExtender.h"
 #include "Serialization/AssetBundleExtenders/SGDTADefaultAssetBundleExtender.h"
 #include "Serialization/AssetBundleExtenders/SGDTAPerPropertyAssetBundleExtender.h"
-#include "Statics/SGDynamicTextAssetConstants.h"
+#include "Statics/SGDTAConstants.h"
 #include "UObject/UObjectIterator.h"
 
 USGDynamicTextAssetRegistry* USGDynamicTextAssetRegistry::Get()

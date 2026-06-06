@@ -1,0 +1,68 @@
+// Copyright Start Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "CoreMinimal.h"
+
+#include "Core/SGDynamicTextAssetId.h"
+#include "Serialization/SGDTASerializerBase.h"
+
+/**
+ * YAML serialization for dynamic text assets.
+ *
+ * Implements ISGDynamicTextAssetSerializer for polymorphic format dispatch.
+ * Uses the fkYAML header-only library (MIT license) for reading and writing
+ * YAML documents.
+ *
+ * Property values are converted via the FSGDynamicTextAssetSerializerBase
+ * JSON-intermediate helpers (SerializePropertyToValue /
+ * DeserializeValueToProperty), keeping format-specific complexity
+ * contained to the YAML-to-FJsonValue bridge.
+ *
+ * YAML format uses a metadata wrapper block(sgFileInformation), for example:
+ * sgFileInformation:
+ *   type: UWeaponData
+ *   version: 1.0.0
+ *   id: 550E8400-E29B-41D4-A716-446655440000
+ *   userfacingid: excalibur
+ * data:
+ *   Damage: 50.0
+ *   Tags:
+ *     - fast
+ *     - heavy
+ */
+class SGDYNAMICTEXTASSETSRUNTIME_API FSGDynamicTextAssetYamlSerializer : public FSGDynamicTextAssetSerializerBase
+{
+public:
+
+    FSGDynamicTextAssetYamlSerializer() = default;
+
+#if WITH_EDITOR
+    virtual const FSlateBrush* GetIconBrush() const override;
+#endif
+
+    /** FSGDTASerializerFormat for the YAML serializer. */
+    static const FSGDTASerializerFormat FORMAT;
+
+    /** @deprecated Use FORMAT instead. */
+    UE_DEPRECATED(5.6, "Use FORMAT instead. Will be removed in UE 5.7")
+    static constexpr uint32 TYPE_ID = SGDynamicTextAssetConstants::YAML_SERIALIZER_TYPE_ID;
+
+    // ISGDynamicTextAssetSerializer overrides
+    virtual FString GetFileExtension() const override;
+    virtual FText GetFormatName() const override;
+    virtual FText GetFormatDescription() const override;
+    virtual FSGDTASerializerFormat GetSerializerFormat() const override;
+    virtual FSGDynamicTextAssetVersion GetFileFormatVersion() const override;
+    virtual bool SerializeProvider(const ISGDynamicTextAssetProvider* Provider, FString& OutString) const override;
+    virtual bool DeserializeProvider(const FString& InString, ISGDynamicTextAssetProvider* OutProvider, bool& bOutMigrated) const override;
+    virtual bool ValidateStructure(const FString& InString, FString& OutErrorMessage) const override;
+    virtual bool ExtractFileInfo(const FString& InString, FSGDynamicTextAssetFileInfo& OutFileInfo) const override;
+    virtual bool UpdateFieldsInPlace(FString& InOutContents, const TMap<FString, FString>& FieldUpdates) const override;
+    virtual FString GetDefaultFileContent(const UClass* DynamicTextAssetClass, const FSGDynamicTextAssetId& Id, const FString& UserFacingId) const override;
+    virtual bool ExtractSGDTAssetBundles(const FString& InString, FSGDynamicTextAssetBundleData& OutBundleData,
+        const TScriptInterface<ISGDynamicTextAssetProvider>& Provider) const override;
+    virtual bool UpdateFileFormatVersion(FString& InOutFileContents, const FSGDynamicTextAssetVersion& NewVersion) const override;
+    virtual bool MigrateFileFormat(FString& InOutFileContents, const FSGDynamicTextAssetVersion& CurrentFormatVersion, const FSGDynamicTextAssetVersion& TargetFormatVersion) const override;
+    // ~ISGDynamicTextAssetSerializer overrides
+};

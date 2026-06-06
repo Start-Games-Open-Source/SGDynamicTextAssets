@@ -5,8 +5,8 @@
 #include "Core/SGDTASerializerFormat.h"
 #include "Core/SGDynamicTextAssetBundleData.h"
 #include "Serialization/AssetBundleExtenders/SGDTADefaultAssetBundleExtender.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
-#include "Statics/SGDynamicTextAssetConstants.h"
+#include "Serialization/SGDTASerializer.h"
+#include "Statics/SGDTAConstants.h"
 
 namespace SGDTADefaultExtenderTestHelpers
 {

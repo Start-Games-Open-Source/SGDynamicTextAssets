@@ -5,25 +5,25 @@
 #include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Core/SGDynamicTextAsset.h"
-#include "Core/SGDynamicTextAssetValidationResult.h"
+#include "Core/SGDTAValidationResult.h"
 #include "Engine/Blueprint.h"
 #include "Engine/Engine.h"
-#include "Management/SGDynamicTextAssetFileManager.h"
+#include "Management/SGDTAFileManager.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Management/SGDTASerializerExtenderRegistry.h"
 #include "Serialization/AssetBundleExtenders/SGDTADefaultAssetBundleExtender.h"
-#include "Serialization/SGDynamicTextAssetSerializer.h"
-#include "Serialization/SGDynamicTextAssetJsonSerializer.h"
-#include "Serialization/SGDynamicTextAssetXmlSerializer.h"
-#include "Serialization/SGDynamicTextAssetYamlSerializer.h"
+#include "Serialization/SGDTASerializer.h"
+#include "Serialization/SGDTAJsonSerializer.h"
+#include "Serialization/SGDTAXmlSerializer.h"
+#include "Serialization/SGDTAYamlSerializer.h"
 #include "Management/SGDynamicTextAssetFileInfo.h"
 #include "SGDynamicTextAssetLogs.h"
-#include "Settings/SGDynamicTextAssetSettings.h"
+#include "Settings/SGDTASettings.h"
 #include "Subsystem/SGDynamicTextAssetSubsystem.h"
 #include "Engine/GameInstance.h"
 
 #if WITH_EDITOR
-#include "Management/SGDynamicTextAssetEditorCache.h"
+#include "Management/SGDTAEditorCache.h"
 #endif
 
 namespace SGDynamicTextAssetStaticsInternal

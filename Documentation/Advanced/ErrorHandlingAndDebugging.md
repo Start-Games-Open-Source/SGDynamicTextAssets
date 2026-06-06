@@ -67,8 +67,8 @@ When migration succeeds in the editor:
 
 | Category | Module | Declaration |
 |----------|--------|-------------|
-| `LogSGDynamicTextAssetsRuntime` | Runtime | `SGDynamicTextAssetsRuntimeModule.h` |
-| `LogSGDynamicTextAssetsEditor` | Editor | `SGDynamicTextAssetsEditorModule.h` |
+| `LogSGDynamicTextAssetsRuntime` | Runtime | `SGDTARuntimeModule.h` |
+| `LogSGDynamicTextAssetsEditor` | Editor | `SGDTAEditorModule.h` |
 
 ### Enabling Verbose Logging
 
