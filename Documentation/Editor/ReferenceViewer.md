@@ -227,7 +227,7 @@ ReferencerCache
 
 ### Reference Discovery
 
-The subsystem provides two directions of reference scanning. All functions listed below live in `SGDynamicTextAssetReferenceSubsystem.cpp` unless otherwise noted.
+The subsystem provides two directions of reference scanning. All functions listed below live in `SGDTAReferenceSubsystem.cpp` unless otherwise noted.
 
 #### Finding Referencers (Inbound)
 
@@ -344,7 +344,7 @@ FindDependencies(Id):                                         // line ~80
 
 ### Property Traversal Algorithm
 
-Both `ExtractRefsFromProperty()` (line ~935) and `ExtractDepsFromProperty()` (line ~1097) in `SGDynamicTextAssetReferenceSubsystem.cpp` use the same recursive depth-first pattern to find references at any nesting depth.
+Both `ExtractRefsFromProperty()` (line ~935) and `ExtractDepsFromProperty()` (line ~1097) in `SGDTAReferenceSubsystem.cpp` use the same recursive depth-first pattern to find references at any nesting depth.
 
 ```
 ExtractRefsFromProperty(Property, ContainerPtr, PropertyPath):
@@ -566,7 +566,7 @@ Assets are classified by their path using `GetContentTypeForPath()` (line ~1519)
 
 ### Widget Data Flow
 
-All widget functions below live in `SSGDynamicTextAssetReferenceViewer.cpp`. When the viewer opens or switches to a new asset:
+All widget functions below live in `SSGDTAReferenceViewer.cpp`. When the viewer opens or switches to a new asset:
 
 ```
 OpenViewer(Id, "WP_Sword")

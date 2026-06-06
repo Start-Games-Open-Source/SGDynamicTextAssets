@@ -14,46 +14,46 @@ SGDynamicTextAssets/
     SGDynamicTextAssetsRuntime/              # Runtime module (ships with game)
       SGDynamicTextAssetsRuntime.Build.cs
       Public/
-        SGDynamicTextAssetsRuntimeModule.h
+        SGDTARuntimeModule.h
         Core/
           ISGDynamicTextAssetProvider.h      # Abstract provider interface
           SGDynamicTextAsset.h               # Abstract base class
           SGDynamicTextAssetId.h             # GUID identity wrapper
           SGDynamicTextAssetRef.h            # GUID-based reference struct
-          SGDynamicTextAssetTypeId.h         # Type identity struct (FSGAssetTypeId)
+          SGDynamicTextAssetTypeId.h         # Type identity struct (FSGDynamicTextAssetTypeId)
           SGDynamicTextAssetVersion.h        # Semantic versioning struct
-          SGDynamicTextAssetValidationResult.h  # Validation entry and result structs
-          SGDynamicTextAssetValidationUtils.h   # Validation utility functions
+          SGDTAValidationResult.h  # Validation entry and result structs
+          SGDTAValidationUtils.h   # Validation utility functions
           SGDynamicTextAssetEnums.h          # ESGLoadResult, ESGCompressionMethod, ESGReferenceType
         Subsystem/
           SGDynamicTextAssetSubsystem.h      # GameInstanceSubsystem for loading/caching
         Management/
           SGDynamicTextAssetRegistry.h       # EngineSubsystem for class registration
-          SGDynamicTextAssetFileManager.h    # Static file path and I/O utilities
+          SGDTAFileManager.h    # Static file path and I/O utilities
           SGDynamicTextAssetFileInfo.h       # File information extraction struct
-          SGDynamicTextAssetCookManifest.h   # Cook manifest read/write
-          SGDynamicTextAssetTypeManifest.h   # Type manifest for class hierarchy
+          SGDTACookManifest.h   # Cook manifest read/write
+          SGDTATypeManifest.h   # Type manifest for class hierarchy
         Serialization/
-          SGDynamicTextAssetSerializer.h        # Serializer registry / factory
-          SGDynamicTextAssetSerializerBase.h    # Base class for all serializers
-          SGDynamicTextAssetJsonSerializer.h    # JSON serialization
-          SGDynamicTextAssetBinarySerializer.h  # Binary compression/decompression
-          SGDynamicTextAssetXmlSerializer.h     # XML serialization
-          SGDynamicTextAssetYamlSerializer.h    # YAML serialization (fkYAML)
-          SGDynamicTextAssetSerializerMetadata.h # Serializer metadata struct
+          SGDTASerializer.h        # Serializer registry / factory
+          SGDTASerializerBase.h    # Base class for all serializers
+          SGDTAJsonSerializer.h    # JSON serialization
+          SGDTABinarySerializer.h  # Binary compression/decompression
+          SGDTAXmlSerializer.h     # XML serialization
+          SGDTAYamlSerializer.h    # YAML serialization (fkYAML)
+          SGDTASerializerMetadata.h # Serializer metadata struct
           SGBinaryDynamicTextAssetHeader.h      # Binary format header struct
           SGBinaryEncodeParams.h                # Binary encoding parameters
         Server/
-          ISGDynamicTextAssetServerInterface.h     # Abstract server interface
-          SGDynamicTextAssetServerCache.h          # SaveGame-based server cache
-          SGDynamicTextAssetServerNullInterface.h  # No-op server interface
+          ISGDTAServerInterface.h     # Abstract server interface
+          SGDTAServerCache.h          # SaveGame-based server cache
+          SGDTAServerNullInterface.h  # No-op server interface
         Statics/
           SGDynamicTextAssetStatics.h        # Blueprint function library
-          SGDynamicTextAssetSlateStyles.h    # Shared Slate style definitions
+          SGDTASlateStyles.h    # Shared Slate style definitions
         Settings/
-          SGDynamicTextAssetSettings.h       # Runtime settings (asset + developer settings)
+          SGDTASettings.h       # Runtime settings (asset + developer settings)
       Private/
-        SGDynamicTextAssetsRuntimeModule.cpp
+        SGDTARuntimeModule.cpp
         Core/
           ISGDynamicTextAssetProvider.cpp
           SGDynamicTextAsset.cpp
@@ -61,129 +61,129 @@ SGDynamicTextAssets/
           SGDynamicTextAssetRef.cpp
           SGDynamicTextAssetTypeId.cpp
           SGDynamicTextAssetVersion.cpp
-          SGDynamicTextAssetValidationResult.cpp
-          SGDynamicTextAssetValidationUtils.cpp
+          SGDTAValidationResult.cpp
+          SGDTAValidationUtils.cpp
         Subsystem/
           SGDynamicTextAssetSubsystem.cpp
         Management/
           SGDynamicTextAssetRegistry.cpp
-          SGDynamicTextAssetFileManager.cpp
-          SGDynamicTextAssetCookManifest.cpp
-          SGDynamicTextAssetTypeManifest.cpp
+          SGDTAFileManager.cpp
+          SGDTACookManifest.cpp
+          SGDTATypeManifest.cpp
         Serialization/
-          SGDynamicTextAssetSerializer.cpp
-          SGDynamicTextAssetSerializerBase.cpp
-          SGDynamicTextAssetJsonSerializer.cpp
-          SGDynamicTextAssetBinarySerializer.cpp
-          SGDynamicTextAssetXmlSerializer.cpp
-          SGDynamicTextAssetYamlSerializer.cpp
-          SGDynamicTextAssetSerializerMetadata.cpp
+          SGDTASerializer.cpp
+          SGDTASerializerBase.cpp
+          SGDTAJsonSerializer.cpp
+          SGDTABinarySerializer.cpp
+          SGDTAXmlSerializer.cpp
+          SGDTAYamlSerializer.cpp
+          SGDTASerializerMetadata.cpp
           SGBinaryDynamicTextAssetHeader.cpp
         Server/
-          ISGDynamicTextAssetServerInterface.cpp
-          SGDynamicTextAssetServerCache.cpp
-          SGDynamicTextAssetServerNullInterface.cpp
+          ISGDTAServerInterface.cpp
+          SGDTAServerCache.cpp
+          SGDTAServerNullInterface.cpp
         Statics/
           SGDynamicTextAssetStatics.cpp
-          SGDynamicTextAssetSlateStyles.cpp
+          SGDTASlateStyles.cpp
         Settings/
-          SGDynamicTextAssetSettings.cpp
+          SGDTASettings.cpp
 
     SGDynamicTextAssetsEditor/               # Editor module (editor only)
       SGDynamicTextAssetsEditor.Build.cs
       Public/
-        SGDynamicTextAssetsEditorModule.h
+        SGDTAEditorModule.h
         Browser/
-          SSGDynamicTextAssetBrowser.h       # Main browser window
-          SSGDynamicTextAssetTypeTree.h      # Type hierarchy tree widget
-          SSGDynamicTextAssetTileView.h      # Asset tile view widget
-          SSGDynamicTextAssetCreateDialog.h  # Create dialog
-          SSGDynamicTextAssetDuplicateDialog.h
-          SSGDynamicTextAssetRenameDialog.h
-          SGDynamicTextAssetBrowserCommands.h  # Browser UI commands
+          SSGDTABrowser.h       # Main browser window
+          SSGDTATypeTree.h      # Type hierarchy tree widget
+          SSGDTATileView.h      # Asset tile view widget
+          SSGDTACreateDialog.h  # Create dialog
+          SSGDTADuplicateDialog.h
+          SSGDTARenameDialog.h
+          SGDTABrowserCommands.h  # Browser UI commands
         Editor/
-          FSGDynamicTextAssetEditorToolkit.h    # Asset editor toolkit
-          SGDynamicTextAssetEditorProxy.h       # Editor proxy for asset editing
-          SGDynamicTextAssetEditorCommands.h    # Editor UI commands
-          SGDynamicTextAssetRefCustomization.h  # FSGDynamicTextAssetRef picker
-          SGDynamicTextAssetIdentityCustomization.h  # GUID/Version display
-          FSGDynamicTextAssetIdCustomization.h  # FSGDynamicTextAssetId customization
-          SSGDynamicTextAssetIdentityBlock.h    # Identity block widget
-          SSGDynamicTextAssetRawView.h          # Raw JSON/text view widget
+          SGDTAEditorToolkit.h    # Asset editor toolkit
+          SGDTAEditorProxy.h       # Editor proxy for asset editing
+          SGDTAEditorCommands.h    # Editor UI commands
+          SGDTARefCustomization.h  # FSGDynamicTextAssetRef picker
+          SGDTADetailCustomization.h  # Detail customization (Identity category, copy buttons)
+          SGDTAIdCustomization.h  # FSGDynamicTextAssetId customization
+          SSGDTAIdentityBlock.h    # Identity block widget
+          SSGDTARawView.h          # Raw JSON/text view widget
           SSGDynamicTextAssetIcon.h             # Icon display widget
-          SGAssetTypeIdCustomization.h          # FSGAssetTypeId customization
+          SGDTAAssetTypeIdCustomization.h          # FSGDynamicTextAssetTypeId customization
         Commandlets/
-          SGDynamicTextAssetCookCommandlet.h
-          SGDynamicTextAssetValidationCommandlet.h
+          SGDTACookCommandlet.h
+          SGDTAValidationCommandlet.h
         ReferenceViewer/
-          SSGDynamicTextAssetReferenceViewer.h
-          SGDynamicTextAssetReferenceSubsystem.h
+          SSGDTAReferenceViewer.h
+          SGDTAReferenceSubsystem.h
         Settings/
-          SGDynamicTextAssetEditorSettings.h
+          SGDTAEditorSettings.h
         Utilities/
-          SGDynamicTextAssetEditorStatics.h  # Editor-only Blueprint library
-          SGDynamicTextAssetCookUtils.h      # Shared cook utilities
-          SGDynamicTextAssetEditorConstants.h # Editor constant values
-          SGDynamicTextAssetSourceControl.h  # Source control wrapper
+          SGDTAEditorStatics.h  # Editor-only Blueprint library
+          SGDTACookUtils.h      # Shared cook utilities
+          SGDTAEditorConstants.h # Editor constant values
+          SGDTASourceControl.h  # Source control wrapper
         Widgets/
-          SSGDynamicTextAssetClassPicker.h   # Class picker widget
+          SSGDTAClassPicker.h   # Class picker widget
       Private/
-        SGDynamicTextAssetsEditorModule.cpp
+        SGDTAEditorModule.cpp
         Browser/
-          SSGDynamicTextAssetBrowser.cpp
-          SSGDynamicTextAssetTypeTree.cpp
-          SSGDynamicTextAssetTileView.cpp
-          SSGDynamicTextAssetCreateDialog.cpp
-          SSGDynamicTextAssetDuplicateDialog.cpp
-          SSGDynamicTextAssetRenameDialog.cpp
-          SGDynamicTextAssetBrowserCommands.cpp
+          SSGDTABrowser.cpp
+          SSGDTATypeTree.cpp
+          SSGDTATileView.cpp
+          SSGDTACreateDialog.cpp
+          SSGDTADuplicateDialog.cpp
+          SSGDTARenameDialog.cpp
+          SGDTABrowserCommands.cpp
         Editor/
-          FSGDynamicTextAssetEditorToolkit.cpp
-          SGDynamicTextAssetEditorProxy.cpp
-          SGDynamicTextAssetEditorCommands.cpp
-          SGDynamicTextAssetRefCustomization.cpp
-          SGDynamicTextAssetIdentityCustomization.cpp
-          FSGDynamicTextAssetIdCustomization.cpp
-          SSGDynamicTextAssetIdentityBlock.cpp
-          SSGDynamicTextAssetRawView.cpp
+          SGDTAEditorToolkit.cpp
+          SGDTAEditorProxy.cpp
+          SGDTAEditorCommands.cpp
+          SGDTARefCustomization.cpp
+          SGDTADetailCustomization.cpp
+          SGDTAIdCustomization.cpp
+          SSGDTAIdentityBlock.cpp
+          SSGDTARawView.cpp
           SSGDynamicTextAssetIcon.cpp
-          SGAssetTypeIdCustomization.cpp
+          SGDTAAssetTypeIdCustomization.cpp
         Commandlets/
-          SGDynamicTextAssetCookCommandlet.cpp
-          SGDynamicTextAssetValidationCommandlet.cpp
+          SGDTACookCommandlet.cpp
+          SGDTAValidationCommandlet.cpp
         ReferenceViewer/
-          SSGDynamicTextAssetReferenceViewer.cpp
-          SGDynamicTextAssetReferenceSubsystem.cpp
+          SSGDTAReferenceViewer.cpp
+          SGDTAReferenceSubsystem.cpp
         Settings/
-          SGDynamicTextAssetEditorSettings.cpp
+          SGDTAEditorSettings.cpp
         Utilities/
-          SGDynamicTextAssetEditorStatics.cpp
-          SGDynamicTextAssetCookUtils.cpp
-          SGDynamicTextAssetEditorConstants.cpp
-          SGDynamicTextAssetSourceControl.cpp
+          SGDTAEditorStatics.cpp
+          SGDTACookUtils.cpp
+          SGDTAEditorConstants.cpp
+          SGDTASourceControl.cpp
         Widgets/
-          SSGDynamicTextAssetClassPicker.cpp
+          SSGDTAClassPicker.cpp
         Tests/
           SGDynamicTextAssetUnitTest.h           # Minimal concrete subclass for testing
-          SGDynamicTextAssetXmlUnitTest.h         # Base test class for XML serializer tests
-          SGDynamicTextAssetYamlUnitTest.h        # Base test class for YAML serializer tests
-          SGDynamicTextAssetVersionTests.cpp
-          SGDynamicTextAssetValidationResultTests.cpp
-          SGDynamicTextAssetRefTests.cpp
-          SGDynamicTextAssetJsonSerializerTests.cpp
-          SGDynamicTextAssetBinarySerializerTests.cpp
-          SGDynamicTextAssetXmlSerializerTests.cpp
-          SGDynamicTextAssetYamlSerializerTests.cpp
-          SGDynamicTextAssetFileManagerTests.cpp
-          SGDynamicTextAssetCookManifestTests.cpp
-          SGDynamicTextAssetStaticsTests.cpp
-          SGDynamicTextAssetTypeIdTests.cpp
-          SGDynamicTextAssetTypeManifestTests.cpp
-          SGDynamicTextAssetTypeRegistryTests.cpp
-          SGDynamicTextAssetProviderTests.cpp
-          SGDynamicTextAssetHardReferenceTests.cpp
-          SGDynamicTextAssetSerializerRegistryTests.cpp
-          SGDynamicTextAssetServerNullInterfaceTests.cpp
+          SGDTAXmlUnitTest.h         # Base test class for XML serializer tests
+          SGDTAYamlUnitTest.h        # Base test class for YAML serializer tests
+          SGDTAVersionTests.cpp
+          SGDTAValidationResultTests.cpp
+          SGDTARefTests.cpp
+          SGDTAJsonSerializerTests.cpp
+          SGDTABinarySerializerTests.cpp
+          SGDTAXmlSerializerTests.cpp
+          SGDTAYamlSerializerTests.cpp
+          SGDTAFileManagerTests.cpp
+          SGDTACookManifestTests.cpp
+          SGDTAStaticsTests.cpp
+          SGDTATypeIdTests.cpp
+          SGDTATypeManifestTests.cpp
+          SGDTATypeRegistryTests.cpp
+          SGDTAProviderTests.cpp
+          SGDTAHardReferenceTests.cpp
+          SGDTASerializerRegistryTests.cpp
+          SGDTAServerNullInterfaceTests.cpp
 
     SGDynamicTextAssetsUhtPlugin/             # UHT plugin for compile-time validation
       SGDynamicTextAssetHardRefValidator.cs

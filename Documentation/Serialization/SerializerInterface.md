@@ -31,7 +31,7 @@ ISGDynamicTextAssetSerializer              (Pure C++ interface, not a UInterface
 
 ## ISGDynamicTextAssetSerializer
 
-The core interface that all serializers implement. Defined in `SGDynamicTextAssetSerializer.h`. Uses standard C++ polymorphism with `TSharedPtr`/`TSharedRef` semantics (not a UInterface).
+The core interface that all serializers implement. Defined in `SGDTASerializer.h`. Uses standard C++ polymorphism with `TSharedPtr`/`TSharedRef` semantics (not a UInterface).
 
 ### Pure Virtual Methods
 
@@ -96,7 +96,7 @@ Each serializer format determines how these keys are structurally represented:
 
 ## FSGDynamicTextAssetSerializerBase
 
-Abstract base class defined in `SGDynamicTextAssetSerializerBase.h`. Provides the "JSON intermediate" approach where property values are converted to/from `FJsonValue` objects before being transformed into the target format.
+Abstract base class defined in `SGDTASerializerBase.h`. Provides the "JSON intermediate" approach where property values are converted to/from `FJsonValue` objects before being transformed into the target format.
 
 ### Protected Virtual Helpers
 

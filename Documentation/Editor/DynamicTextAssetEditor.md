@@ -27,7 +27,7 @@ Displayed at the top of the editor window:
 
 ### Identity Section
 
-Displayed below the info bar using `SGDynamicTextAssetIdentityCustomization`:
+Displayed below the info bar using `FSGDTADetailCustomization`:
 
 - **DynamicTextAssetId**: Read-only, with a copy button to copy to clipboard.
 - **UserFacingId**: Read-only display (rename through the browser), with a copy button.

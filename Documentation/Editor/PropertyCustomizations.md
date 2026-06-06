@@ -69,7 +69,7 @@ PropertyModule.RegisterCustomPropertyTypeLayout(
         &FSGDynamicTextAssetRefCustomization::MakeInstance));
 ```
 
-## FSGDynamicTextAssetIdentityCustomization
+## FSGDTADetailCustomization
 
 A detail customization for `USGDynamicTextAsset` that enhances the display of identity fields in the Dynamic Text Asset Editor.
 
@@ -91,7 +91,7 @@ The identity customization is registered for the `USGDynamicTextAsset` class:
 PropertyModule.RegisterCustomClassLayout(
     USGDynamicTextAsset::StaticClass()->GetFName(),
     FOnGetDetailCustomizationInstance::CreateStatic(
-        &FSGDynamicTextAssetIdentityCustomization::MakeInstance));
+        &FSGDTADetailCustomization::MakeInstance));
 ```
 
 [Back to Table of Contents](../TableOfContents.md)
