@@ -46,6 +46,24 @@ The search matches against the UserFacingId, ClassName, and `FSGDynamicTextAsset
 
 **Double-click** a tile to open the [Dynamic Text Asset Editor](DynamicTextAssetEditor.md).
 
+#### Tile Status Overlays
+
+Each tile can carry two independent corner overlays. They are driven by separate systems, so a tile may show either, both, or neither.
+
+| Overlay | Corner | Driven by | Shown when |
+|---------|--------|-----------|------------|
+| **Source-control badge** | Top-left | The active provider's own status icon (`ISourceControlState::GetIcon()`) | The file is tracked and in a state the provider draws a marker for. No badge for a clean/up-to-date file, and no badge when source control is disabled. |
+| **Unsaved-change star** | Top-right | Editor dirty state only | An open editor for the file has unsaved edits. Independent of source control, so it appears whether or not source control is enabled. |
+
+The badge is the provider's engine-faithful icon rather than a plugin icon set, so its appearance follows Perforce, Subversion, or Git conventions per provider. For the full per-provider presentation model (which states draw a marker, and why a clean tracked file shows nothing), see the badge-drawing model in [Source Control](SourceControl.md).
+
+The tile tooltip adds two lines below the base asset information when they apply:
+
+- The **source-control line** is taken verbatim from the provider's `ISourceControlState::GetDisplayTooltip()` for the file. It is skipped when source control is disabled. See the tile tooltip section of [Source Control](SourceControl.md) for how this line is sourced.
+- The **unsaved-change line** is the shipped string `Has unsaved changes.`, shown when an open editor for the file has unsaved edits.
+
+![A tile showing the source-control badge in the top-left corner and the unsaved-change star in the top-right corner.](images/SCCBadgeExample.png) 
+
 ## Toolbar
 
 | Button | Action |
@@ -89,6 +107,33 @@ Right-click an item in the asset grid for additional operations:
   Source control integration marks the new file for add and the old file for delete.
   A notification displays the success or failure count after the operation completes.
   Any open editors for the converted file are updated via `NotifyFileRenamed()` so they track the new file path.
+- **Revision Control >**: A submenu of source-control actions for the selected asset(s). See below.
+
+### Revision Control Submenu
+
+The **Revision Control** submenu is added to the context menu **only when source control is enabled**. When source control is off it is absent entirely, not shown as a greyed-out entry. Its actions read the same provider state that drives the tile badge and tooltip; see [Source Control](SourceControl.md) for that shared model.
+
+The submenu contains six entries, in this order:
+
+| Entry | Tooltip | Enabled when |
+|-------|---------|--------------|
+| **Refresh** | Update the revision control status of the selected files | Always, while source control is on. Re-queries provider status for the selected files and refreshes badges, tooltips, and menu enablement. |
+| **Mark For Add** | Mark the selected files for add in revision control | Every selected file is untracked (`NotInSourceControl`). Marks the selected files for add. |
+| **Check In** | Check in the selected files to revision control | At least one selected file has local changes, using the broader set {checked out, added, locally modified, marked for delete}. This set includes a clean checkout. Opens the engine check-in dialog for the selected files. |
+| **History** | View the revision history of the selected files | Every selected file is tracked (under source control). Opens the engine revision-history view. |
+| **Diff Against Depot** | Diff the selected file's local working copy against its head depot revision using the external text-diff tool | Exactly one file is selected, it is tracked, and its provider allows diffing against the depot. Multi-select disables it. Launches the configured external text-diff tool comparing the local file to the head depot revision. |
+| **Revert** | Discard local changes to the selected files, restoring them to the depot revision | At least one selected file has actual local changes, using the tightened set {added, locally modified, marked for delete}. Prompts for confirmation, reverts, and reloads any open editor for a reverted file so its content and unsaved-change star match disk. |
+
+**Check In vs Revert enable conditions.** These two entries deliberately use different status sets, and the difference is visible in practice:
+
+- **Check In** uses the broader set {checked out, added, locally modified, marked for delete}, which **does** include a clean checked-out file (checked out but unmodified).
+- **Revert** uses the tightened set {added, locally modified, marked for delete}, which **excludes** a clean checked-out file. A file that is checked out but unmodified has nothing to revert, so Revert stays disabled for it while Check In is enabled.
+
+**Diff Against Depot is the interim external diff.** It shells out to the configured external text-diff tool and compares the raw on-disk file against the head depot revision as plain text. This is a line-level, format-agnostic view. A DTA-aware, property-level semantic diff is planned as a separate, later effort and is not shipped today; see the diff distinction in [Source Control](SourceControl.md) for how the two differ.
+
+There is deliberately no **Merge** entry. Dynamic text asset payloads are opaque to source control, so a semantic three-way merge does not apply; Revert (discarding local changes wholesale) is the meaningful conflict resolution for these files.
+
+![The Revision Control submenu expanded from a tile context menu, showing the six entries.](images/SCCSubmenuOptions.png)
 
 ## Create Dialog
 
