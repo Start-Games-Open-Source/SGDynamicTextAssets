@@ -743,6 +743,26 @@ bool FSGDynamicTextAssetEditorToolkit::LoadFromFile()
         return false;
     }
 
+    // Guard against instantiating an abstract class. A file that references an abstract
+    // class would crash NewObject below (StaticAllocateObject rejects abstract classes), so
+    // fail gracefully with a log entry and a user-facing toast instead. This protects every
+    // open path, since both double-click open and OpenEditorForFile funnel through here.
+    if (classToUse->HasAnyClassFlags(CLASS_Abstract))
+    {
+        UE_LOG(LogSGDynamicTextAssetsEditor, Error,
+            TEXT("Cannot open file '%s': class '%s' is abstract and cannot be instantiated"),
+            *FilePath, *fileInfo.ClassName);
+
+        FNotificationInfo notification(FText::Format(
+            INVTEXT("Cannot open this file: it references the abstract class '{0}', which cannot be instantiated."),
+            FText::FromString(fileInfo.ClassName)));
+        notification.ExpireDuration = 6.0f;
+        notification.Image = FAppStyle::GetBrush("Icons.ErrorWithColor");
+        FSlateNotificationManager::Get().AddNotification(notification);
+
+        return false;
+    }
+
     // Create or reuse the dynamic text asset instance
     UObject* dataObject = EditedDynamicTextAsset;
     if (!dataObject || dataObject->GetClass() != classToUse)

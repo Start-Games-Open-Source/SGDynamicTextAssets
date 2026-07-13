@@ -3,6 +3,7 @@
 #include "Browser/SSGDTACreateDialog.h"
 
 #include "Management/SGDTAFileManager.h"
+#include "Management/SGDynamicTextAssetRegistry.h"
 #include "Statics/SGDTAConstants.h"
 #include "Management/SGDynamicTextAssetFileInfo.h"
 #include "SGDTAEditorLogs.h"
@@ -179,8 +180,12 @@ void SSGDynamicTextAssetCreateDialog::Construct(const FArguments& InArgs)
         ]
     ];
 
-    // Sync SelectedClass from the picker's default selection (first class if no InitialClass)
-    if (!SelectedClass.IsValid() && ClassPicker.IsValid())
+    // The picker is authoritative for the class selection. It only lists instantiable
+    // classes and reconciles InitialClass against them (matching it when instantiable,
+    // otherwise falling back to the first concrete class). Always adopting the picker's
+    // resolved selection guarantees an instantiable class even when an abstract
+    // InitialClass was passed in, while preserving a concrete InitialClass.
+    if (ClassPicker.IsValid())
     {
         SelectedClass = ClassPicker->GetSelectedClass();
     }
@@ -369,6 +374,27 @@ bool SSGDynamicTextAssetCreateDialog::ValidateInputs() const
     // Check for valid class
     if (!SelectedClass.IsValid())
     {
+        return false;
+    }
+    // Reject a non-instantiable class. Writing a file with an abstract class produces a
+    // record that crashes on open when the loader tries to instantiate it. Prefer the
+    // registry's instantiable check and fall back to the raw class flag if it is unavailable.
+    bool bIsInstantiable = false;
+    if (USGDynamicTextAssetRegistry* registry = USGDynamicTextAssetRegistry::Get())
+    {
+        bIsInstantiable = registry->IsInstantiableClass(SelectedClass.Get());
+    }
+    else
+    {
+        bIsInstantiable = !SelectedClass->HasAnyClassFlags(CLASS_Abstract);
+    }
+    if (!bIsInstantiable)
+    {
+        if (ErrorText.IsValid())
+        {
+            ErrorText->SetText(INVTEXT("Selected class is abstract and cannot be instantiated. Pick a concrete class."));
+            ErrorText->SetVisibility(EVisibility::Visible);
+        }
         return false;
     }
     // Check if the name is empty
