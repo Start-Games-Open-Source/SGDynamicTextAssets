@@ -16,11 +16,16 @@
 #include "ReferenceViewer/SSGDTAReferenceViewer.h"
 #include "SGDTAEditorLogs.h"
 #include "Utilities/SGDTACookUtils.h"
+#include "Utilities/SGDTASCCStatusCache.h"
 #include "Utilities/SGDTASourceControl.h"
 #include "Browser/SGDTABrowserCommands.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "ISourceControlModule.h"
+#include "ISourceControlProvider.h"
+#include "SourceControlOperations.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/MessageDialog.h"
 #include "SPositiveActionButton.h"
@@ -78,7 +83,27 @@ void SSGDynamicTextAssetBrowser::Construct(const FArguments& InArgs)
         ]
     ];
 
+    // Auto-refresh source control state when the editor regains focus, for example after the
+    // author staged files with git in an external terminal and alt-tabbed back. App-level
+    // activation fires reliably on Windows when returning from another application. Bound weakly
+    // via AddSP and removed in the destructor so a destroyed browser widget is never called.
+    if (FSlateApplication::IsInitialized())
+    {
+        ApplicationActivationChangedHandle = FSlateApplication::Get().OnApplicationActivationStateChanged().AddSP(
+            this, &SSGDynamicTextAssetBrowser::HandleApplicationActivationChanged);
+    }
+
     UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Dynamic Text Asset Browser constructed"));
+}
+
+SSGDynamicTextAssetBrowser::~SSGDynamicTextAssetBrowser()
+{
+    // Guarded: Slate can be torn down before this widget during editor shutdown.
+    if (ApplicationActivationChangedHandle.IsValid() && FSlateApplication::IsInitialized())
+    {
+        FSlateApplication::Get().OnApplicationActivationStateChanged().Remove(ApplicationActivationChangedHandle);
+        ApplicationActivationChangedHandle.Reset();
+    }
 }
 
 void SSGDynamicTextAssetBrowser::OpenAndSelect(const FSGDynamicTextAssetId& DynamicTextAssetId)
@@ -564,7 +589,104 @@ FReply SSGDynamicTextAssetBrowser::OnRefreshButtonClicked()
     // Refresh the tile view
     RefreshTileViewForSelectedType();
 
+    // Then force-refresh source control state for the listed files, so externally
+    // staged/changed provider state (e.g. git add outside the editor) becomes visible
+    RequestSourceControlStatusUpdate();
+
     return FReply::Handled();
+}
+
+void SSGDynamicTextAssetBrowser::RequestSourceControlStatusUpdate()
+{
+    // Provider must be enabled and available, and the cache must exist to receive the invalidation
+    if (!FSGDynamicTextAssetSourceControl::IsSourceControlEnabled() || !FSGDynamicTextAssetSCCStatusCache::IsAvailable())
+    {
+        return;
+    }
+    if (!TileView.IsValid())
+    {
+        return;
+    }
+
+    // Coalesce rapid triggers: while one update is still running, skip launching another so
+    // repeated focus toggles (or a refresh click during an in-flight update) do not pile up
+    // async operations. The flag is cleared in the completion handler, which always fires.
+    if (bSourceControlStatusUpdateInFlight)
+    {
+        return;
+    }
+
+    // Update status only for the files currently listed in the view
+    TArray<FString> filePaths = TileView->GetAllItemFilePaths();
+    if (filePaths.IsEmpty())
+    {
+        return;
+    }
+
+    // Request modified-state detection so providers that only surface local modification on
+    // demand (Perforce) populate IsModified(); the Git provider reports working-tree edits from
+    // a plain status regardless, so the flag is harmless there. This keeps a manual/auto refresh
+    // able to detect a saved Git edit, matching the write-triggered refresh in the status cache.
+    TSharedRef<FUpdateStatus, ESPMode::ThreadSafe> updateOperation = ISourceControlOperation::Create<FUpdateStatus>();
+    updateOperation->SetUpdateModifiedState(true);
+
+    // Fire-and-forget async status update. The completion delegate is bound via CreateSP,
+    // so it safely no-ops if this browser widget is destroyed while the operation is in flight.
+    bSourceControlStatusUpdateInFlight = true;
+    ISourceControlProvider& sourceControlProvider = ISourceControlModule::Get().GetProvider();
+    sourceControlProvider.Execute(
+        updateOperation,
+        filePaths,
+        EConcurrency::Asynchronous,
+        FSourceControlOperationComplete::CreateSP(this, &SSGDynamicTextAssetBrowser::OnSourceControlStatusUpdateComplete)
+    );
+}
+
+void SSGDynamicTextAssetBrowser::OnSourceControlStatusUpdateComplete(const FSourceControlOperationRef& Operation, ECommandResult::Type Result)
+{
+    // Clear the in-flight guard regardless of result so future refreshes can run.
+    bSourceControlStatusUpdateInFlight = false;
+
+    if (Result != ECommandResult::Succeeded)
+    {
+        // Failed or cancelled update: leave cached state as-is
+        UE_LOG(LogSGDynamicTextAssetsEditor, Error,
+            TEXT("Browser refresh: async source control status update did not succeed (result %d)"),
+            static_cast<int32>(Result));
+        return;
+    }
+
+    // The engine's state cache is now fresh; clear our cached entries so the next
+    // query repopulates. InvalidateAll broadcasts OnStatusChanged, which each visible
+    // tile's SCC badge widget listens to and refreshes itself, so no extra work here.
+    if (FSGDynamicTextAssetSCCStatusCache::IsAvailable())
+    {
+        FSGDynamicTextAssetSCCStatusCache::Get().InvalidateAll();
+    }
+}
+
+void SSGDynamicTextAssetBrowser::HandleApplicationActivationChanged(const bool bIsActive)
+{
+    // Only react to the app regaining focus. Ignore deactivation so backgrounding the editor
+    // never triggers a refresh.
+    if (!bIsActive)
+    {
+        return;
+    }
+
+    // Skip when the browser tab is closed or sitting behind another tab. Refreshing a tab the
+    // author cannot see would be needless background provider chatter. A closed tab also destroys
+    // this widget (unbinding the delegate), so this primarily guards the hidden-tab case.
+    const TSharedPtr<SDockTab> browserTab = FGlobalTabmanager::Get()->FindExistingLiveTab(FTabId(GetTabId()));
+    if (!browserTab.IsValid() || !browserTab->IsForeground())
+    {
+        return;
+    }
+
+    // Reuses the exact plumbing the manual refresh button drives. It no-ops when source control
+    // is disabled, the cache is unavailable, the view is empty, or a prior update is in flight,
+    // so no additional guards are needed here.
+    RequestSourceControlStatusUpdate();
 }
 
 FReply SSGDynamicTextAssetBrowser::OnValidateAllButtonClicked()
@@ -1338,9 +1460,8 @@ void SSGDynamicTextAssetBrowser::ConvertSelectedItems(const TArray<TSharedPtr<FS
         {
             successCount++;
 
-            // Source control: mark old file for delete, new file for add
-            FSGDynamicTextAssetSourceControl::MarkForDelete(oldFilePath);
-            FSGDynamicTextAssetSourceControl::MarkForAdd(newFilePath);
+            // Source control (mark old for delete, new for add) is handled internally by
+            // ConvertFileFormat above (bHandleSourceControl defaults to true).
 
             // Notify any open editor so it updates its file path and title
             FSGDynamicTextAssetEditorToolkit::NotifyFileRenamed(oldFilePath, newFilePath);

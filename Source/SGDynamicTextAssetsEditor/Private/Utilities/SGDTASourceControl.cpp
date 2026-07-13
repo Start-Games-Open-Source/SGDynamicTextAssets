@@ -120,17 +120,30 @@ ESGDynamicTextAssetSourceControlStatus FSGDynamicTextAssetSourceControl::GetFile
 	{
 		return ESGDynamicTextAssetSourceControlStatus::Added;
 	}
+	// Before the checked-out branches: a delete-opened file also reports as opened
+	// under some providers, and marked-for-delete is the more specific state.
+	if (FileState->IsDeleted())
+	{
+		return ESGDynamicTextAssetSourceControlStatus::MarkedForDelete;
+	}
 	if (FileState->IsCheckedOutOther())
 	{
 		return ESGDynamicTextAssetSourceControlStatus::CheckedOutByOther;
 	}
-	if (FileState->IsCheckedOut())
-	{
-		return ESGDynamicTextAssetSourceControlStatus::CheckedOut;
-	}
+	// Check IsModified() before IsCheckedOut(): the states are mutually exclusive here, so testing
+	// modification first lets CheckedOut mean specifically "checked out but unmodified" (a clean
+	// checkout) instead of masking a checked-out file that also has local edits. Callers that gate on
+	// actual local changes (such as Revert) rely on this distinction.
 	if (FileState->IsModified())
 	{
 		return ESGDynamicTextAssetSourceControlStatus::ModifiedLocally;
+	}
+	// Gate CheckedOut on the provider's checkout model. Git aliases IsCheckedOut() to
+	// IsSourceControlled(), so a clean tracked Git file would otherwise read as CheckedOut.
+	// On Git this falls through to NotCheckedOut; Perforce / SVN (checkout providers) are unchanged.
+	if (FileState->IsCheckedOut() && ProviderUsesCheckout())
+	{
+		return ESGDynamicTextAssetSourceControlStatus::CheckedOut;
 	}
 
 	return ESGDynamicTextAssetSourceControlStatus::NotCheckedOut;
@@ -166,6 +179,16 @@ bool FSGDynamicTextAssetSourceControl::IsSourceControlEnabled()
 {
 	ISourceControlModule& SourceControlModule = ISourceControlModule::Get();
 	return SourceControlModule.IsEnabled() && SourceControlModule.GetProvider().IsAvailable();
+}
+
+bool FSGDynamicTextAssetSourceControl::ProviderUsesCheckout()
+{
+	if (!IsSourceControlEnabled())
+	{
+		return false;
+	}
+
+	return ISourceControlModule::Get().GetProvider().UsesCheckout();
 }
 
 bool FSGDynamicTextAssetSourceControl::CheckOutFiles(const TArray<FString>& FilePaths)

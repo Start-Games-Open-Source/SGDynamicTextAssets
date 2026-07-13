@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 
 #include "Framework/Commands/UICommandList.h"
+#include "ISourceControlProvider.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Browser/SGDTABrowserCommands.h"
 
@@ -43,6 +44,9 @@ public:
 
     /** Constructs this widget */
     void Construct(const FArguments& InArgs);
+
+    /** Removes the app-activation subscription, guarded against Slate being torn down first during shutdown. */
+    ~SSGDynamicTextAssetBrowser();
 
     // SWidget overrides
     virtual bool SupportsKeyboardFocus() const override { return true; }
@@ -107,6 +111,38 @@ private:
 
     /** Called when Refresh button is clicked */
     FReply OnRefreshButtonClicked();
+
+    /**
+     * Kicks off an async FUpdateStatus for the files currently listed in the tile view
+     * and invalidates the SCC status cache on completion, so externally staged/changed
+     * provider state (e.g. git add outside the editor) becomes visible.
+     * Fire-and-forget: no-op when source control is disabled, the cache is unavailable,
+     * or the view has no files; a failed update leaves cached state as-is.
+     */
+    void RequestSourceControlStatusUpdate();
+
+    /**
+     * Completion handler for the async FUpdateStatus kicked off by RequestSourceControlStatusUpdate.
+     * On success, invalidates the SCC status cache so the next paint re-queries the now-fresh
+     * engine state; a failed or cancelled update leaves cached state as-is.
+     * Bound via CreateSP, so it safely no-ops if this widget is destroyed while in flight.
+     *
+     * @param Operation The completed source control operation
+     * @param Result Whether the operation succeeded, failed, or was cancelled
+     */
+    void OnSourceControlStatusUpdateComplete(const FSourceControlOperationRef& Operation, ECommandResult::Type Result);
+
+    /**
+     * App-activation handler: when the editor regains focus (for example the author returns
+     * from an external terminal after a git operation), automatically re-runs the source
+     * control status update for the listed files so externally changed provider state converges
+     * without a manual refresh click. No-ops on deactivation and when the browser tab is not the
+     * foreground tab; the update itself no-ops when source control is disabled, the cache is
+     * unavailable, the view is empty, or a prior update is still in flight.
+     *
+     * @param bIsActive True when the application became active, false when it was deactivated.
+     */
+    void HandleApplicationActivationChanged(const bool bIsActive);
 
     /** Called when Validate All button is clicked */
     FReply OnValidateAllButtonClicked();
@@ -215,6 +251,12 @@ private:
 
     /** Cached: whether the currently selected type is non-instantiable (abstract) */
     uint8 bIsSelectedTypeNonInstantiable : 1 = 0;
+
+    /** True while an async source control status update is in flight, so rapid triggers coalesce instead of stacking. */
+    uint8 bSourceControlStatusUpdateInFlight : 1 = 0;
+
+    /** Handle for the app-activation subscription driving the automatic source control refresh; removed in the destructor. */
+    FDelegateHandle ApplicationActivationChangedHandle;
 
     /** Checkbox widget reference for direct enable/disable control */
     TSharedPtr<SCheckBox> IncludeChildTypesCheckBox = nullptr;

@@ -16,6 +16,16 @@ struct FSGDynamicTextAssetId;
 struct FSGDynamicTextAssetTypeId;
 
 /**
+ * Coarse "the dirty state changed somewhere, re-query" refresh signal.
+ *
+ * Carries no payload by design: observers (e.g. browser tile badges) re-run the
+ * authoritative path-keyed HasOpenEditorWithUnsavedChanges() query on broadcast
+ * rather than trusting a pushed value. This keeps the toolkit's dirty surface
+ * single-sourced in OPEN_EDITORS + DIRTY_OBJECT_CACHE with no parallel state.
+ */
+DECLARE_MULTICAST_DELEGATE(FOnDirtyStateChanged);
+
+/**
  * Tab ID for the Details panel inside the dynamic text asset editor.
  */
 namespace SGDynamicTextAssetEditorTabs
@@ -119,6 +129,16 @@ public:
     static void NotifyFileDeleted(const FString& FilePath);
 
     /**
+     * Notifies any open editor that a file has been reverted on disk.
+     * Looks up the open editor for the path and reloads it via ReloadFromDisk() so its
+     * displayed content matches the reverted-to disk state and its dirty flag clears.
+     * No-op if no editor is open for that path.
+     *
+     * @param FilePath  Absolute file path of the reverted file
+     */
+    static void NotifyFileReverted(const FString& FilePath);
+
+    /**
      * Returns true if there is an open editor for the given file path that has unsaved changes.
      * Returns false if no editor is open for that path or if the editor has no unsaved changes.
      *
@@ -142,10 +162,30 @@ public:
      */
     static bool HandleCanCloseEditor();
 
+    /**
+     * Re-deserializes the file from FilePath into the in-memory asset, forces the Details view
+     * to rebind, refreshes the raw view, and clears the dirty flag via MarkClean() without any
+     * save prompt. Leaves bHasUnsavedChanges cleared so the reloaded state matches disk exactly.
+     *
+     * Operates on this toolkit's own FilePath, so it is browser-agnostic: both the browser's
+     * revision-control Revert and the in-editor toolbar can call it identically.
+     */
+    void ReloadFromDisk();
+
     /** Returns the absolute path of the file being edited. */
     const FString& GetFilePath() const { return FilePath; }
 
     bool HasUnsavedChanges() const { return bHasUnsavedChanges; }
+
+    /**
+     * Broadcast whenever an asset's dirty state may have changed (any dirty/clean transition).
+     *
+     * This is a coarse, parameterless re-query signal: on broadcast, observers should re-run
+     * HasOpenEditorWithUnsavedChanges(FilePath) for the paths they care about rather than
+     * assume a specific asset changed. Broadcast from MarkDirty(), MarkClean(), NotifyFileDeleted(),
+     * and the bulk discard/save-all paths in HandleCanCloseEditor().
+     */
+    static FOnDirtyStateChanged OnDirtyStateChanged;
 
 private:
 
@@ -163,6 +203,37 @@ private:
 
     /** Populates the toolbar extension section. */
     void FillToolbar(FToolBarBuilder& ToolbarBuilder);
+
+    /**
+     * Checks the edited file out of source control, invalidates its cached status,
+     * and toasts the real result of the operation.
+     */
+    void Internal_CheckOutFile();
+
+    /** Returns true when Check Out is currently allowed for the edited file. */
+    bool CanCheckOutFile() const;
+
+    /**
+     * Marks the edited file for add in source control, invalidates its cached status,
+     * and toasts the real result of the operation.
+     */
+    void Internal_MarkForAddFile();
+
+    /** Returns true when Mark For Add is currently allowed for the edited file. */
+    bool CanMarkForAddFile() const;
+
+    /**
+     * Confirms with the user, reverts the edited file to the depot version via the shared
+     * source-control wrapper, reloads this toolkit from disk on success, invalidates the
+     * cached status, and toasts the real result of the operation.
+     */
+    void Internal_RevertFile();
+
+    /** Returns true when Revert is currently allowed for the edited file. */
+    bool CanRevertFile() const;
+
+    /** SCC status cache change handler: regenerates the toolbar so Check Out re-evaluates its enablement. */
+    void HandleSCCStatusChanged();
 
     /** Constructs the parent class hyperlink in the top-right corner of the editor's menu bar. */
     void ConstructParentClassHyperlink();
@@ -221,6 +292,9 @@ private:
 
     /** True when the in-memory state differs from the file on disk. */
     uint8 bHasUnsavedChanges : 1 = 0;
+
+    /** Handle for the SCC status cache subscription that drives live Check Out enablement; removed in the destructor. */
+    FDelegateHandle SCCStatusChangedHandle;
 
     /** Weak references to all currently open toolkits, keyed by file path. */
     static TMap<FString, TWeakPtr<FSGDynamicTextAssetEditorToolkit>> OPEN_EDITORS;

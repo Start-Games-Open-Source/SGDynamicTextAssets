@@ -4,18 +4,18 @@
 
 #include "CoreMinimal.h"
 
+#include "Browser/SGDTABrowserCommands.h"
+#include "Core/SGDTASerializerFormat.h"
 #include "Core/SGDynamicTextAssetId.h"
 #include "Core/SGDynamicTextAssetTypeId.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/Commands/UICommandList.h"
+#include "Serialization/SGDTASerializer.h"
+#include "Utilities/SGDTASourceControl.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
-#include "Browser/SGDTABrowserCommands.h"
-
-#include "Core/SGDTASerializerFormat.h"
-#include "Serialization/SGDTASerializer.h"
 
 /**
  * Item representing a dynamic text asset file in the browser.
@@ -119,6 +119,9 @@ public:
     /** Returns the number of items currently displayed (after filtering) */
     int32 GetFilteredItemCount() const;
 
+    /** Returns the file paths of all items currently in the view (unfiltered) */
+    TArray<FString> GetAllItemFilePaths() const;
+
     /** Selects an item by ID */
     void SelectById(const FSGDynamicTextAssetId& Id);
 
@@ -141,6 +144,67 @@ private:
 
     /** Generates the context menu for right-click actions */
     TSharedPtr<SWidget> GenerateContextMenu();
+
+    /**
+     * Fills the "Revision Control" submenu with its source-control entries.
+     * Shared by both the single-select and multi-select context-menu branches; all entries are
+     * selection-count-agnostic. Entries are appended in native Content Browser order: Refresh,
+     * Mark For Add, Check In, History, Diff Against Depot, Revert. No "Merge" entry is provided
+     * because opaque dynamic text asset payloads have no semantic three-way merge.
+     *
+     * @param MenuBuilder The submenu's builder, supplied by the AddSubMenu fill delegate.
+     * @param SelectedItems The tiles selected when the context menu was opened.
+     */
+    void FillRevisionControlSubMenu(FMenuBuilder& MenuBuilder, TArray<TSharedPtr<FSGDTAAssetListItem>> SelectedItems);
+
+    /**
+     * Answers whether the current selection matches a source-control status, in either
+     * all-match or any-match mode, reading the shared SCC status cache per selected file.
+     * Returns false when the cache is unavailable or the selection is empty.
+     *
+     * @param SelectedItems The selected tiles to test.
+     * @param Status The source-control status to compare each selected file's cached status against.
+     * @param bRequireAll True to require every selected file to match (all-match); false to accept any (any-match).
+     * @return True if the selection satisfies the requested match against Status.
+     */
+    bool DoesSelectionMatchStatus(const TArray<TSharedPtr<FSGDTAAssetListItem>>& SelectedItems,
+        ESGDynamicTextAssetSourceControlStatus Status, bool bRequireAll) const;
+
+    /**
+     * Answers whether every selected file is under source control, reading the shared SCC status
+     * cache per selected file. A file counts as tracked when its cached status is neither
+     * NotInSourceControl nor Unknown. This is the negative-set condition the single-status
+     * DoesSelectionMatchStatus cannot express, so it is a dedicated all-match helper. Returns false
+     * when the cache is unavailable or the selection is empty.
+     *
+     * @param SelectedItems The selected tiles to test.
+     * @return True if every selected file is tracked by source control.
+     */
+    bool IsSelectionAllTracked(const TArray<TSharedPtr<FSGDTAAssetListItem>>& SelectedItems) const;
+
+    /**
+     * Answers whether at least one selected file has local changes, reading the shared SCC status
+     * cache per selected file. A file counts as locally changed when its cached status is CheckedOut,
+     * Added, ModifiedLocally, or MarkedForDelete. This is the any-match "has local changes" predicate
+     * used by the Check In entry (Revert uses the tightened IsSelectionAnyRevertable, which excludes a
+     * clean CheckedOut). Returns false when the cache is unavailable or the selection is empty.
+     *
+     * @param SelectedItems The selected tiles to test.
+     * @return True if any selected file has local changes.
+     */
+    bool IsSelectionAnyLocallyChanged(const TArray<TSharedPtr<FSGDTAAssetListItem>>& SelectedItems) const;
+
+    /**
+     * Answers whether at least one selected file has changes that Revert can discard, reading the shared
+     * SCC status cache per selected file. This is the tightened Revert predicate: a file counts as
+     * revertable when its cached status is Added, ModifiedLocally, or MarkedForDelete. It deliberately
+     * excludes a clean CheckedOut (checked out but unmodified), which has nothing to revert. Returns false
+     * when the cache is unavailable or the selection is empty.
+     *
+     * @param SelectedItems The selected tiles to test.
+     * @return True if any selected file has changes Revert can discard.
+     */
+    bool IsSelectionAnyRevertable(const TArray<TSharedPtr<FSGDTAAssetListItem>>& SelectedItems) const;
 
     /** Called when the instance search text changes */
     void OnInstanceSearchTextChanged(const FText& NewText);

@@ -24,6 +24,9 @@
 #include "Statics/SGDTAConstants.h"
 #include "Utilities/SGDTACookUtils.h"
 #include "Utilities/SGDTASourceControl.h"
+#include "Utilities/SGDTASCCStatusCache.h"
+#include "Utilities/SGDTADefaultSCCBridge.h"
+#include "Management/SGDTASCCBridge.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
 #include "ToolMenus.h"
@@ -50,6 +53,17 @@ public:
     virtual void StartupModule() override
     {
         UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("SGDynamicTextAssetsEditor module initialized"));
+
+        // Register the source-control bridge so the Runtime file manager can auto-checkout
+        // files on write without linking the editor source-control wrapper.
+        SourceControlBridge = MakeUnique<FSGDTADefaultSourceControlBridge>();
+        FSGDynamicTextAssetFileManager::SOURCE_CONTROL_BRIDGE = SourceControlBridge.Get();
+
+        // Create the SCC status cache after the bridge so both source-control seams are
+        // live before any UI queries status. Its constructor registers the provider
+        // state-changed and ON_FILE_CHANGED subscriptions; destroyed first in
+        // ShutdownModule (reverse order of construction).
+        SCCStatusCache = MakeUnique<FSGDynamicTextAssetSCCStatusCache>();
 
         // Register TCommands singletons (must outlive all widget/toolkit instances)
         FSGDynamicTextAssetEditorCommands::Register();
@@ -142,6 +156,16 @@ public:
     virtual void ShutdownModule() override
     {
         UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("SGDynamicTextAssetsEditor module shutdown"));
+
+        // Destroy the SCC status cache first (reverse order of construction) so both of
+        // its subscriptions are unregistered and no late OnStatusChanged broadcast can
+        // reach dying UI while the rest of the module unwinds.
+        SCCStatusCache.Reset();
+
+        // Clear the static bridge pointer BEFORE destroying the instance so a late
+        // write never dereferences a stale pointer.
+        FSGDynamicTextAssetFileManager::SOURCE_CONTROL_BRIDGE = nullptr;
+        SourceControlBridge.Reset();
 
         // Unregister shutdown save dialog hook
         if (CanCloseEditorDelegateHandle.IsValid() && FModuleManager::Get().IsModuleLoaded("MainFrame"))
@@ -668,6 +692,12 @@ private:
 
     /** Handle for the CanCloseEditor delegate (DTA shutdown save dialog) */
     FDelegateHandle CanCloseEditorDelegateHandle;
+
+    /** Owns the single source-control bridge instance registered on FSGDynamicTextAssetFileManager. */
+    TUniquePtr<FSGDTADefaultSourceControlBridge> SourceControlBridge;
+
+    /** Owns the single SCC status cache instance published through FSGDynamicTextAssetSCCStatusCache::Get(). */
+    TUniquePtr<FSGDynamicTextAssetSCCStatusCache> SCCStatusCache;
 };
 
 #undef LOCTEXT_NAMESPACE
