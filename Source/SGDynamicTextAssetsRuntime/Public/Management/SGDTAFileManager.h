@@ -12,11 +12,46 @@
 class USGDynamicTextAsset;
 class FSGDynamicTextAssetCookManifest;
 class ISGDynamicTextAssetSerializer;
+class ISGDTASourceControlBridge;
 
 struct FSGDynamicTextAssetFileInfo;
 
 DECLARE_DELEGATE_RetVal_FourParams(FString, FSGDataGenerateDefaultContentDelegate, const UClass*,
     const FSGDynamicTextAssetId&, const FString&, TSharedRef<ISGDynamicTextAssetSerializer>);
+
+/**
+ * Kind of in-process file mutation reported by FOnDTAFileChanged.
+ * Emitted by FSGDynamicTextAssetFileManager from each successful mutation.
+ *
+ * A single mutation has a single kind, so this is intentionally not a bitflags
+ * enum and is a plain enum (not UENUM) because it is only ever a parameter of an
+ * in-process, non-dynamic multicast delegate. It is never a UPROPERTY, never a
+ * Blueprint type, and never serialized. Any future consumer that switches on this
+ * value must include a default case per the project switch convention.
+ */
+enum class ESGDynamicTextAssetFileChangeKind : uint8
+{
+    /** A new file was written (write to new path, create, or duplicate). */
+    Created,
+    /** A file was removed from disk. */
+    Deleted,
+    /** A file moved to a new path (rename and convert fire once per path). */
+    Renamed,
+    /** An existing file's contents were overwritten in place. */
+    Modified
+};
+
+/**
+ * Broadcast once per successful in-process file mutation by the file manager.
+ * Param 1 = the kind of change (created/deleted/renamed/modified).
+ * Param 2 = the absolute file path affected (rename and convert fire once per path).
+ * Param 3 = the asset GUID, or an invalid FGuid when the GUID is not available at the mutation site (path is always correct).
+ *
+ * Runtime delegate: fires in ALL build configs and is NOT gated by WITH_EDITOR,
+ * unlike the editor-only SOURCE_CONTROL_BRIDGE. It fires only from in-process file
+ * manager mutations, never from external on-disk edits (no file watcher is in scope).
+ */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnDTAFileChanged, ESGDynamicTextAssetFileChangeKind /*Kind*/, const FString& /*FilePath*/, const FGuid& /*Guid*/);
 
 /**
  * Resolves a relative file path to an absolute file path.
@@ -164,12 +199,26 @@ public:
     /**
      * Writes raw file contents to a dynamic text asset file.
      * Creates parent directories if needed.
-     * 
+     *
      * @param FilePath Absolute path to the file
      * @param Contents The contents to write
+     * @param bAutoCheckOut Default = true. When true and source control is enabled and the target file
+     * already exists on disk, the file is checked out (via the registered SourceControlBridge)
+     * before the write. Checkout is game thread only,
+     * non-game thread callers MUST pass false (an off-thread checkout is a hard error).
+     * A brand-new file is not checked out (that is a mark for add concern).
+     * A checkout failure prints a warning and exits.
+     * @param bBroadcastChange Default = true. When true and the write succeeds, ON_FILE_CHANGED is
+     * broadcast with Modified if the file existed before the write, else Created. High-level
+     * mutations that route through this method (create/duplicate/rename/convert) pass false and
+     * emit their own correct-kind broadcast, so each user-level mutation fires exactly once.
+     * @param ChangedGuid Default = invalid. The asset GUID carried on the broadcast. Direct raw
+     * writes that do not know the GUID leave this invalid, the path is always correct. Callers
+     * with the GUID in hand (e.g. the editor toolkit save path) should pass it.
      * @return True if file was written successfully
      */
-    static bool WriteRawFileContents(const FString& FilePath, const FString& Contents);
+    static bool WriteRawFileContents(const FString& FilePath, const FString& Contents, bool bAutoCheckOut = true,
+        bool bBroadcastChange = true, const FGuid& ChangedGuid = FGuid());
 
     /**
      * Creates a new dynamic text asset file with a generated ID.
@@ -186,35 +235,52 @@ public:
 
     /**
      * Deletes a dynamic text asset file.
-     * 
+     *
      * @param FilePath Absolute path to the file to delete
+     * @param bBroadcastChange Default = true. When true and a file was actually deleted,
+     * ON_FILE_CHANGED broadcasts Deleted (GUID recovered best-effort before the delete).
+     * The rename and convert paths delete the old file as part of a move and pass false so
+     * they can emit Renamed instead, keeping a single high-level mutation to one event kind.
+     * A delete (file did not exist) never broadcasts.
      * @return True if file was deleted or didn't exist
      */
-    static bool DeleteDynamicTextAssetFile(const FString& FilePath);
+    static bool DeleteDynamicTextAssetFile(const FString& FilePath, bool bBroadcastChange = true);
 
     /**
      * Renames a dynamic text asset by moving the file to a new path based on NewUserFacingId.
      * Updates the UserFacingId field in the JSON if present.
      * The ID remains unchanged.
      *
+     * Handles source control automatically; pass bHandleSourceControl=false to opt out.
+     * When enabled it marks the old path for delete and the new path for add. Source
+     * control is game thread only, non-game thread callers MUST pass false.
+     *
      * @param SourceFilePath Absolute path to the source file
      * @param NewUserFacingId The new human-readable ID for the dynamic text asset
      * @param OutNewFilePath Output for the new file path after rename
+     * @param bHandleSourceControl Default = true. When true and the editor source-control
+     * bridge is registered, the old path is marked for delete and the new path for add.
      * @return True if the rename succeeded
      */
-    static bool RenameDynamicTextAsset(const FString& SourceFilePath, const FString& NewUserFacingId, FString& OutNewFilePath);
+    static bool RenameDynamicTextAsset(const FString& SourceFilePath, const FString& NewUserFacingId, FString& OutNewFilePath, bool bHandleSourceControl = true);
 
     /**
      * Duplicates an existing dynamic text asset file with a new name and ID.
-     * 
+     *
+     * Handles source control automatically; pass bHandleSourceControl=false to opt out.
+     * When enabled it marks the new path for add. Source control is game thread only,
+     * non-game thread callers MUST pass false.
+     *
      * @param SourceFilePath Absolute path to the source file
      * @param NewUserFacingId The human-readable ID for the duplicate
      * @param OutNewId Output for the generated ID of the duplicate
      * @param OutNewFilePath Output for the created file path
+     * @param bHandleSourceControl Default = true. When true and the editor source-control
+     * bridge is registered, the new path is marked for add.
      * @return True if file was duplicated successfully
      */
     static bool DuplicateDynamicTextAsset(const FString& SourceFilePath, const FString& NewUserFacingId,
-        FSGDynamicTextAssetId& OutNewId, FString& OutNewFilePath);
+        FSGDynamicTextAssetId& OutNewId, FString& OutNewFilePath, bool bHandleSourceControl = true);
 
 #if WITH_EDITOR
     /**
@@ -224,15 +290,18 @@ public:
      * and deletes the old file. All file information (GUID, UserFacingId, Version,
      * AssetTypeId) is preserved through the round-trip.
      *
-     * Source control operations (mark-for-add, mark-for-delete) are NOT handled
-     * by this method  - the caller is responsible for managing source control state.
+     * Handles source control automatically; pass bHandleSourceControl=false to opt out.
+     * When enabled it marks the old path for delete and the new path for add. Source
+     * control is game thread only, non-game thread callers MUST pass false.
      *
      * @param SourceFilePath   Absolute path to the source file
      * @param TargetExtension  Target format extension (e.g., ".dta.xml", ".dta.yaml")
      * @param OutNewFilePath   Output for the new file's absolute path
+     * @param bHandleSourceControl Default = true. When true and the editor source-control
+     * bridge is registered, the old path is marked for delete and the new path for add.
      * @return True if the conversion succeeded
      */
-    static bool ConvertFileFormat(const FString& SourceFilePath, const FString& TargetExtension, FString& OutNewFilePath);
+    static bool ConvertFileFormat(const FString& SourceFilePath, const FString& TargetExtension, FString& OutNewFilePath, bool bHandleSourceControl = true);
 #endif
 
     /**
@@ -423,6 +492,27 @@ public:
 
     /** Relative root directory (from Content). */
     static const FString DEFAULT_RELATIVE_ROOT_PATH;
+
+    /**
+     * Non-owning pointer to the single Editor-registered source-control bridge.
+     *
+     * Null in cooked/runtime builds and until the Editor module's StartupModule
+     * registers it (set/cleared in SGDTAEditorModule.cpp). When null, auto-checkout
+     * in WriteRawFileContents is a graceful no-op. Public so the Editor module can
+     * assign it and so automation can register a fake.
+     */
+    static ISGDTASourceControlBridge* SOURCE_CONTROL_BRIDGE;
+
+    /**
+     * Broadcast once per successful in-process file mutation (create, delete, rename,
+     * duplicate, convert, and direct writes through WriteRawFileContents).
+     *
+     * Runtime delegate: fires in ALL build configs, independent of source-control state
+     * (it is never gated by WITH_EDITOR or SOURCE_CONTROL_BRIDGE). Subscribers such as the
+     * SCC status cache (owned by a later epic) use it to invalidate path-keyed state. The
+     * cache itself is not referenced here; this class only publishes the signal.
+     */
+    static FOnDTAFileChanged ON_FILE_CHANGED;
 
 private:
 
