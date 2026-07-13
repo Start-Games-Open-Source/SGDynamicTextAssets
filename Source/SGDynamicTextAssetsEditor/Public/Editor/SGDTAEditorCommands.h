@@ -28,12 +28,18 @@ public:
 
     virtual void RegisterCommands() override;
 
-    /** Discard unsaved changes and reload from file */
-    TSharedPtr<FUICommandInfo> Revert = nullptr;
-
     /** Reveal the file in the OS file browser */
     TSharedPtr<FUICommandInfo> ShowInExplorer = nullptr;
 
     /** Open the Reference Viewer for this dynamic text asset */
     TSharedPtr<FUICommandInfo> OpenReferenceViewer = nullptr;
+
+    /** Check the edited file out of source control */
+    TSharedPtr<FUICommandInfo> SourceControlCheckOut = nullptr;
+
+    /** Mark the edited file for add in source control */
+    TSharedPtr<FUICommandInfo> SourceControlMarkForAdd = nullptr;
+
+    /** Revert the edited file to the depot version, discarding local changes */
+    TSharedPtr<FUICommandInfo> SourceControlRevert = nullptr;
 };

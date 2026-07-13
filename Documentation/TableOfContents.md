@@ -21,11 +21,22 @@
 - [Blueprint Statics](Runtime/BlueprintStatics.md): USGDynamicTextAssetStatics: Blueprint function library
 
 ### Editor Tools
-- [Dynamic Text Asset Browser](Editor/DynamicTextAssetBrowser.md): Browsing, creating, duplicating, renaming, deleting, validation
-- [Dynamic Text Asset Editor](Editor/DynamicTextAssetEditor.md): Property editing, saving, reverting, Raw View
+- [Dynamic Text Asset Browser](Editor/DynamicTextAssetBrowser.md): Browsing, creating, duplicating, renaming, deleting, validation, source-control visuals and Revision Control submenu
+  - [Tile Status Overlays](Editor/DynamicTextAssetBrowser.md#tile-status-overlays): Source-control badge and unsaved-change star on each tile
+  - [Revision Control Submenu](Editor/DynamicTextAssetBrowser.md#revision-control-submenu): Refresh, Mark For Add, Check In, History, Diff Against Depot, Revert
+- [Dynamic Text Asset Editor](Editor/DynamicTextAssetEditor.md): Property editing, saving, reverting, Raw View, Revision Control toolbar and status indicator
+  - [Source Control Status Indicator](Editor/DynamicTextAssetEditor.md#source-control-status-indicator): Always-visible provider status icon in the toolkit header
+  - [Revision Control](Editor/DynamicTextAssetEditor.md#revision-control): Toolbar section with Check Out, Mark For Add, and Revert
 - [Reference Viewer](Editor/ReferenceViewer.md): Viewing referencers and dependencies
 - [Property Customizations](Editor/PropertyCustomizations.md): FSGDynamicTextAssetRef picker, identity display
-- [Source Control](Editor/SourceControl.md): Auto-checkout, mark for add/delete
+- [Source Control](Editor/SourceControl.md): Tile status badges and the unsaved-change star, Revision Control affordances, automatic status refresh, Diff Against Depot, and author-level auto source control
+  - [Source Control Workflow](Editor/SourceControl.md#source-control-workflow): The check out, edit, diff, revert, and check in loop
+  - [Tile Status Visuals](Editor/SourceControl.md#tile-status-visuals): Provider badge, unsaved-change star, and tile tooltip
+  - [Automatic Status Refresh](Editor/SourceControl.md#automatic-status-refresh): Focus-gain and post-write triggers that keep status current
+  - [Diff Against Depot vs Planned Semantic Diff](Editor/SourceControl.md#diff-against-depot-vs-planned-semantic-diff): Interim raw text diff and the later semantic diff
+  - [File Manager Auto Source Control (Author Level)](Editor/SourceControl.md#file-manager-auto-source-control-author-level): Automatic checkout, add, and delete on file mutations
+  - [Provider Awareness](Editor/SourceControl.md#provider-awareness): Checkout versus modify-in-place handling across providers
+  - [Presentation vs Gating](Editor/SourceControl.md#presentation-vs-gating): Provider state for visuals, plugin enum for action enablement
 
 ### Serialization and Cooking
 - [Serializer Interface](Serialization/SerializerInterface.md): ISGDynamicTextAssetSerializer contract, custom serializer guide

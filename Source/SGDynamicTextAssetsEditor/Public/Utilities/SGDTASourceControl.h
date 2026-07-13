@@ -14,25 +14,28 @@ UENUM(BlueprintType)
 enum class ESGDynamicTextAssetSourceControlStatus : uint8
 {
 	/** Status not determined */
-	Unknown             UMETA(DisplayName = "Unknown"),
+	Unknown	UMETA(DisplayName = "Unknown"),
 
 	/** File not tracked by source control */
-	NotInSourceControl  UMETA(DisplayName = "Not In Source Control"),
+	NotInSourceControl UMETA(DisplayName = "Not In Source Control"),
 
 	/** File marked for add */
-	Added               UMETA(DisplayName = "Added"),
+	Added UMETA(DisplayName = "Added"),
 
 	/** File checked out by current user */
-	CheckedOut          UMETA(DisplayName = "Checked Out"),
+	CheckedOut UMETA(DisplayName = "Checked Out"),
 
 	/** File checked out by another user */
-	CheckedOutByOther   UMETA(DisplayName = "Checked Out By Other"),
+	CheckedOutByOther UMETA(DisplayName = "Checked Out By Other"),
 
 	/** File is tracked but not checked out */
-	NotCheckedOut       UMETA(DisplayName = "Not Checked Out"),
+	NotCheckedOut UMETA(DisplayName = "Not Checked Out"),
 
 	/** File has local modifications */
-	ModifiedLocally     UMETA(DisplayName = "Modified Locally")
+	ModifiedLocally UMETA(DisplayName = "Modified Locally"),
+
+	/** File marked for delete */
+	MarkedForDelete UMETA(DisplayName = "Marked For Delete")
 };
 
 /**
@@ -90,6 +93,15 @@ public:
 	 * @return True if source control is enabled and connected.
 	 */
 	static bool IsSourceControlEnabled();
+
+	/**
+	 * Checks whether the active provider uses a checkout / lock workflow.
+	 * Perforce and Subversion return true; Git (modify-in-place) returns false.
+	 * Used to gate checkout-specific status and UI so each provider reads correctly.
+	 *
+	 * @return False when source control is disabled, otherwise the provider's UsesCheckout() value.
+	 */
+	static bool ProviderUsesCheckout();
 
 	/**
 	 * Checks out multiple files from source control.

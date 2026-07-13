@@ -7,7 +7,6 @@
 #include "SGDTAEditorLogs.h"
 #include "Core/SGDynamicTextAssetTypeId.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
-#include "Utilities/SGDTASourceControl.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Layout/SBox.h"
@@ -257,14 +256,8 @@ FReply SSGDynamicTextAssetDuplicateDialog::OnDuplicateClicked()
 		return FReply::Handled();
 	}
 
-	// Auto-add to source control
-	if (FSGDynamicTextAssetSourceControl::IsSourceControlEnabled())
-	{
-		if (!FSGDynamicTextAssetSourceControl::MarkForAdd(CreatedFilePath))
-		{
-			UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("Failed to mark duplicated file for add in source control: %s"), *CreatedFilePath);
-		}
-	}
+	// Source control (mark new for add) is handled internally by DuplicateDynamicTextAsset
+	// above (bHandleSourceControl defaults to true).
 
 	bWasConfirmed = true;
 

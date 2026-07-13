@@ -5,7 +5,7 @@
 ## Overview
 
 The Dynamic Text Asset Editor (`FSGDynamicTextAssetEditorToolkit`) is a standalone window for editing a single dynamic text asset's properties.
-It provides a Details panel for property editing, a Raw View for inspecting the on-disk file content, and save/revert/copy functionality.
+It provides a Details panel for property editing, a Raw View for inspecting the on-disk file content, a toolbar with save, copy, and source-control actions, and an always-visible source-control status indicator in the window header.
 
 ## Opening the Editor
 
@@ -24,6 +24,17 @@ Displayed at the top of the editor window:
 - **Top Row**: Parent class hyperlink. Clicking the class name opens the corresponding C++ source file.
 - **Bottom Row**: A copy button followed by the `FSGDynamicTextAssetId` displayed in monospace font.
   Clicking the copy button copies the ID string to the clipboard.
+
+### Source Control Status Indicator
+
+A standalone source-control status icon lives in the top-right of the toolkit header, alongside the "File Type: <format>" text, its help "?" icon, and the "Version: X" line. Because it is part of the toolkit header rather than a tab, it is **always visible regardless of which tab (Details or Raw View) is active**.
+
+- It renders the active provider's own status icon for the file, matching the browser tile badge. See [SourceControl.md](SourceControl.md) for the shared per-provider presentation and badge-drawing model.
+- On hover it shows the provider's status tooltip (from `ISourceControlState::GetDisplayTooltip()`).
+- It **self-collapses (shows nothing)** for a clean / up-to-date file, an untracked file, or when source control is disabled.
+- Its status updates automatically as the file's source-control state changes; see [SourceControl.md](SourceControl.md) for the automatic status refresh triggers.
+
+![Screenshot of the toolkit header showing the File Type / Version text with the source-control status icon to its right.](images/SCCDTAToolkitStatus.png)
 
 ### Identity Section
 
@@ -64,9 +75,21 @@ The Raw View can also be opened in a sidebar panel (`.SetCanSidebarTab(true)`).
 |--------|--------|
 | **Save** | Validates and saves the dynamic text asset to its file |
 | **Copy Raw** | Copies the serialized file content to the clipboard |
-| **Revert** | Reloads from disk, discarding unsaved changes |
 | **Reference Viewer** | Opens the Reference Viewer for this asset |
 | **Show in Explorer** | Opens the file location in the OS file browser |
+
+Protection against losing unsaved changes is handled by the close-time confirmation prompt (see [Unsaved Changes Tracking](#unsaved-changes-tracking)), not by a toolbar button.
+
+### Revision Control
+
+When source control is enabled, the toolbar adds a separate **Revision Control** section after the buttons above. The whole section is **omitted entirely (not greyed out) when source control is disabled**, mirroring how the browser hides its source-control submenu. It contains, in order, up to three buttons. Each button's enabled state updates live as the file's source-control status changes, without reopening the toolbar. For the shared per-provider model and automatic status refresh, see [SourceControl.md](SourceControl.md).
+
+- **Check Out**: Shown **only on providers that use a checkout / lock model** (Perforce, Subversion). It is **omitted entirely, not merely disabled**, on modify-in-place providers such as Git, where there is nothing to check out. Enabled when the file is tracked but not currently checked out. On success it shows a toast (`Checked out file from source control.`).
+- **Mark For Add**: Shown on **every provider** (including Git). Enabled **only when the file is untracked** (not in source control), matching the browser Mark For Add condition. On invoke it marks the file for add and shows a toast (`Marked file for add in source control.` on success).
+- **Revert**: Shown on every provider. Enabled **only when the file has actual local changes** (marked for add, or locally modified); a clean checked-out-but-unmodified file does not enable it. On invoke it opens a confirmation dialog (titled "Revert File", message "Revert <filename>? This discards all local changes and cannot be undone."). If confirmed, it reverts the file to the depot version, reloads the editor from disk so the Details and Raw views show the reverted content with the dirty star cleared and no save prompt, and shows a toast (`Reverted file to the depot version.` on success).
+
+![Screenshot of the toolbar Revision Control section on a checkout provider showing Mark For Add, and Revert.](images/SCCDTAToolkitToolbar.png)
+*Checkout would show up in an appropriate Revision Control Provider like Perforce. This screenshot is from using GitHub.*
 
 ## Save Workflow
 

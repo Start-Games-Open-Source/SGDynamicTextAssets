@@ -74,6 +74,45 @@ public:
 
 private:
 
+    /**
+     * Restores selection of the given class after a tree rebuild.
+     * Only restores if the class is still visible under the active type filter;
+     * otherwise the tree keeps its no-selection state. Does not fire OnTypeSelected,
+     * since the selected type did not actually change.
+     */
+    void RestoreSelectedClass(UClass* ClassToRestore);
+
+    /**
+     * Recursively searches the visible (filtered) tree for the item representing the given class.
+     * Searches by class rather than item pointer because filtering displays cloned items.
+     *
+     * @param InClass The class to look for
+     * @param Items The visible items to search (pass FilteredRootItems at the top level)
+     * @param OutAncestors Filled with the visible ancestor chain of the found item (root first)
+     * @return The visible item for the class, or nullptr if it is filtered out or not present
+     */
+    TSharedPtr<FSGDTATypeTreeItem> FindVisibleItemForClass(UClass* InClass, const TArray<TSharedPtr<FSGDTATypeTreeItem>>& Items, TArray<TSharedPtr<FSGDTATypeTreeItem>>& OutAncestors) const;
+
+    /**
+     * Recursively collects the class of every visible item that is currently expanded.
+     * Keyed by class rather than item pointer because a rebuild replaces the item
+     * objects (and an active search filter displays cloned items).
+     *
+     * @param Items The visible items to walk (pass FilteredRootItems at the top level)
+     * @param OutExpandedClasses Filled with the classes of all expanded visible items
+     */
+    void CaptureExpandedClasses(const TArray<TSharedPtr<FSGDTATypeTreeItem>>& Items, TSet<UClass*>& OutExpandedClasses) const;
+
+    /**
+     * Recursively re-expands every visible item whose class is in the given set.
+     * Items whose class is not in the set are left collapsed (the rebuilt tree's
+     * default), and captured classes no longer visible are skipped silently.
+     *
+     * @param Items The visible items to walk (pass FilteredRootItems at the top level)
+     * @param ExpandedClasses The classes captured by CaptureExpandedClasses before the rebuild
+     */
+    void RestoreExpandedClasses(const TArray<TSharedPtr<FSGDTATypeTreeItem>>& Items, const TSet<UClass*>& ExpandedClasses);
+
     /** Generates a row for the tree view */
     TSharedRef<ITableRow> GenerateRow(TSharedPtr<FSGDTATypeTreeItem> Item, const TSharedRef<STableViewBase>& OwnerTable);
 
@@ -136,4 +175,7 @@ private:
 
     /** Widget switcher for empty/populated states */
     TSharedPtr<SWidgetSwitcher> ContentSwitcher = nullptr;
+
+    /** True while RefreshTree restores the previous selection; suppresses the OnTypeSelected notify */
+    uint8 bIsRestoringSelection : 1 = 0;
 };

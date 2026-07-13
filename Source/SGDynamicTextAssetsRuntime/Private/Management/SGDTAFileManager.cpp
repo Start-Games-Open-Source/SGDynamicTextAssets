@@ -10,6 +10,7 @@
 #include "UObject/UObjectIterator.h"
 #include "UObject/Package.h"
 #include "Management/SGDTACookManifest.h"
+#include "Management/SGDTASCCBridge.h"
 #include "Management/SGDynamicTextAssetRegistry.h"
 #include "Management/SGDynamicTextAssetFileInfo.h"
 #include "Misc/Paths.h"
@@ -29,6 +30,10 @@
 const FString FSGDynamicTextAssetFileManager::DEFAULT_RELATIVE_ROOT_PATH = TEXT("SGDynamicTextAssets");
 
 FSGDataGenerateDefaultContentDelegate FSGDynamicTextAssetFileManager::ON_GENERATE_DEFAULT_CONTENT;
+
+ISGDTASourceControlBridge* FSGDynamicTextAssetFileManager::SOURCE_CONTROL_BRIDGE = nullptr;
+
+FOnDTAFileChanged FSGDynamicTextAssetFileManager::ON_FILE_CHANGED;
 
 TMap<FString, TSharedRef<ISGDynamicTextAssetSerializer>> FSGDynamicTextAssetFileManager::REGISTERED_SERIALIZERS;
 TMap<FSGDTASerializerFormat, TSharedRef<ISGDynamicTextAssetSerializer>> FSGDynamicTextAssetFileManager::REGISTERED_SERIALIZERS_BY_FORMAT;
@@ -586,13 +591,18 @@ bool FSGDynamicTextAssetFileManager::ReadRawFileContents(const FString& FilePath
     return bSuccess;
 }
 
-bool FSGDynamicTextAssetFileManager::WriteRawFileContents(const FString& FilePath, const FString& Contents)
+bool FSGDynamicTextAssetFileManager::WriteRawFileContents(const FString& FilePath, const FString& Contents, bool bAutoCheckOut,
+    bool bBroadcastChange, const FGuid& ChangedGuid)
 {
     if (FilePath.IsEmpty())
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::WriteRawFileContents: Inputted EMPTY FilePath"));
         return false;
     }
+
+    // Capture existence BEFORE the write decides the broadcast kind. The write itself
+    // creates the file, so a post-write existence check would always report true.
+    const bool bExistedBeforeWrite = FileExists(FilePath);
 
     // Ensure parent directory exists
     const FString directory = FPaths::GetPath(FilePath);
@@ -607,6 +617,26 @@ bool FSGDynamicTextAssetFileManager::WriteRawFileContents(const FString& FilePat
         }
     }
 
+#if WITH_EDITOR
+    // Auto-checkout existing files before overwriting. The bridge is bound by the
+    // editor module in SGDTAEditorModule.cpp (StartupModule); it is null in cooked
+    // builds and when the editor module is not loaded, in which case checkout is a
+    // graceful no-op.
+    if (bAutoCheckOut && SOURCE_CONTROL_BRIDGE && FileExists(FilePath))
+    {
+        // ISourceControlModule is on the game thread. 
+        // Off thread writers must pass bAutoCheckOut=false if they want a non-game thread write
+        check(IsInGameThread());
+
+        if (!SOURCE_CONTROL_BRIDGE->CheckOutFile(FilePath))
+        {
+            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                TEXT("FSGDynamicTextAssetFileManager::WriteRawFileContents: Checkout failed for FilePath(%s); proceeding to write"), *FilePath);
+            // A read-only file surfaces the existing OS-level write error below.
+        }
+    }
+#endif // WITH_EDITOR
+
     if (!FFileHelper::SaveStringToFile(Contents, *FilePath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::WriteRawFileContents: Failed to write file at FilePath(%s)"), *FilePath);
@@ -614,6 +644,19 @@ bool FSGDynamicTextAssetFileManager::WriteRawFileContents(const FString& FilePat
     }
 
     UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("Wrote file at FilePath(%s)"), *FilePath);
+
+    // Broadcast the change for direct writes. High-level mutations pass bBroadcastChange=false
+    // and emit their own correct-kind broadcast so a single mutation fires exactly once.
+    // This is intentionally outside any WITH_EDITOR / source-control guard: 
+    // the delegate is a runtime signal independent of source-control state.
+    if (bBroadcastChange)
+    {
+        const ESGDynamicTextAssetFileChangeKind changeKind = bExistedBeforeWrite
+            ? ESGDynamicTextAssetFileChangeKind::Modified
+            : ESGDynamicTextAssetFileChangeKind::Created;
+        ON_FILE_CHANGED.Broadcast(changeKind, FilePath, ChangedGuid);
+    }
+
     return true;
 }
 
@@ -675,7 +718,8 @@ bool FSGDynamicTextAssetFileManager::CreateDynamicTextAssetFile(const UClass* Dy
         fileContent = serializer->GetDefaultFileContent(DynamicTextAssetClass, OutId, UserFacingId);
     }
 
-    if (!WriteRawFileContents(OutFilePath, fileContent))
+    // Suppress the inner write's broadcast, this method emits the single Created event below.
+    if (!WriteRawFileContents(OutFilePath, fileContent, true, false))
     {
         OutId.Invalidate();
         OutFilePath.Empty();
@@ -685,10 +729,12 @@ bool FSGDynamicTextAssetFileManager::CreateDynamicTextAssetFile(const UClass* Dy
     UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("FSGDynamicTextAssetFileManager::CreateDynamicTextAssetFile: Created dynamic text asset file: UserFacingId(%s) ID(%s) FilePath(%s)"),
         *UserFacingId, *OutId.ToString(), *OutFilePath);
 
+    ON_FILE_CHANGED.Broadcast(ESGDynamicTextAssetFileChangeKind::Created, OutFilePath, OutId.GetGuid());
+
     return true;
 }
 
-bool FSGDynamicTextAssetFileManager::DeleteDynamicTextAssetFile(const FString& FilePath)
+bool FSGDynamicTextAssetFileManager::DeleteDynamicTextAssetFile(const FString& FilePath, bool bBroadcastChange)
 {
     if (FilePath.IsEmpty())
     {
@@ -700,8 +746,22 @@ bool FSGDynamicTextAssetFileManager::DeleteDynamicTextAssetFile(const FString& F
 
     if (!platformFile.FileExists(*FilePath))
     {
-        // File doesn't exist, consider this success
+        // File doesn't exist, consider this success. No mutation occurred, so do not broadcast.
         return true;
+    }
+
+    // Best-effort GUID recovery BEFORE the delete; after deletion the GUID is unrecoverable.
+    // A failed extraction falls back to an invalid FGuid and never fails the delete; the path
+    // on the broadcast is always correct regardless. Only paid when this method broadcasts
+    // (rename/convert suppress the broadcast and recover the GUID their own way).
+    FGuid deletedGuid;
+    if (bBroadcastChange)
+    {
+        const FSGDynamicTextAssetFileInfo deletedFileInfo = ExtractFileInfoFromFile(FilePath);
+        if (deletedFileInfo.bIsValid)
+        {
+            deletedGuid = deletedFileInfo.Id.GetGuid();
+        }
     }
 
     if (!platformFile.DeleteFile(*FilePath))
@@ -711,10 +771,17 @@ bool FSGDynamicTextAssetFileManager::DeleteDynamicTextAssetFile(const FString& F
     }
 
     UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("FSGDynamicTextAssetFileManager::DeleteDynamicTextAssetFileDeleted file at FilePath(%s)"), *FilePath);
+
+    // High-level moves (rename/convert) pass bBroadcastChange=false and emit Renamed themselves.
+    if (bBroadcastChange)
+    {
+        ON_FILE_CHANGED.Broadcast(ESGDynamicTextAssetFileChangeKind::Deleted, FilePath, deletedGuid);
+    }
+
     return true;
 }
 
-bool FSGDynamicTextAssetFileManager::RenameDynamicTextAsset(const FString& SourceFilePath, const FString& NewUserFacingId, FString& OutNewFilePath)
+bool FSGDynamicTextAssetFileManager::RenameDynamicTextAsset(const FString& SourceFilePath, const FString& NewUserFacingId, FString& OutNewFilePath, bool bHandleSourceControl)
 {
     OutNewFilePath.Empty();
 
@@ -794,20 +861,51 @@ bool FSGDynamicTextAssetFileManager::RenameDynamicTextAsset(const FString& Sourc
         serializer->UpdateFieldsInPlace(updatedContents, fieldUpdates);
     }
 
-    // Write to the new file path
-    if (!WriteRawFileContents(OutNewFilePath, updatedContents))
+    // Write to the new file path. Suppress the inner broadcast,
+    // this method emits its own Renamed events (one per path) after the move completes.
+    if (!WriteRawFileContents(OutNewFilePath, updatedContents, true, false))
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Failed to write new file at FilePath(%s)"), *OutNewFilePath);
         OutNewFilePath.Empty();
         return false;
     }
 
-    // Delete the old file
-    if (!DeleteDynamicTextAssetFile(SourceFilePath))
+    // Delete the old file. Suppress the inner Deleted broadcast, this is half of a move and is reported as Renamed below.
+    if (!DeleteDynamicTextAssetFile(SourceFilePath, false))
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Warning, TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Wrote new file but failed to delete old file at SourceFilePath(%s)"), *SourceFilePath);
         // Still return true since the new file was written successfully
     }
+
+#if WITH_EDITOR
+    // Mark the old path for delete and the new path for add in source control.
+    // The bridge is bound by the editor module in SGDTAEditorModule.cpp (StartupModule)
+    // and it is null in cooked builds and when the editor module is not loaded, otherwise run normally.
+    if (bHandleSourceControl && SOURCE_CONTROL_BRIDGE)
+    {
+        // ISourceControlModule is on the game thread.
+        // Off thread writers must pass bHandleSourceControl=false if they want a non-game thread write
+        check(IsInGameThread());
+
+        if (!SOURCE_CONTROL_BRIDGE->MarkForDelete(SourceFilePath))
+        {
+            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Mark for delete failed for SourceFilePath(%s); continuing"), *SourceFilePath);
+        }
+        if (!SOURCE_CONTROL_BRIDGE->MarkForAdd(OutNewFilePath))
+        {
+            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                TEXT("FSGDynamicTextAssetFileManager::RenameDynamicTextAsset: Mark for add failed for OutNewFilePath(%s); continuing"), *OutNewFilePath);
+        }
+    }
+#endif // WITH_EDITOR
+
+    // A rename is a move: report it as Renamed once for the old path and once for the new path,
+    // carrying the preserved asset GUID. Outside the WITH_EDITOR/SCC guard so it fires in all
+    // build configs independent of source-control state.
+    const FGuid renamedGuid = fileInfo.Id.GetGuid();
+    ON_FILE_CHANGED.Broadcast(ESGDynamicTextAssetFileChangeKind::Renamed, SourceFilePath, renamedGuid);
+    ON_FILE_CHANGED.Broadcast(ESGDynamicTextAssetFileChangeKind::Renamed, OutNewFilePath, renamedGuid);
 
     UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("FSGDynamicTextAssetFileManager::Renamed dynamic text asset: UserFacingId(%s) -> NewUserFacingId(%s)|(FilePath(%s)"),
         *fileInfo.UserFacingId, *NewUserFacingId, *OutNewFilePath);
@@ -815,7 +913,7 @@ bool FSGDynamicTextAssetFileManager::RenameDynamicTextAsset(const FString& Sourc
     return true;
 }
 
-bool FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset(const FString& SourceFilePath, const FString& NewUserFacingId, FSGDynamicTextAssetId& OutNewId, FString& OutNewFilePath)
+bool FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset(const FString& SourceFilePath, const FString& NewUserFacingId, FSGDynamicTextAssetId& OutNewId, FString& OutNewFilePath, bool bHandleSourceControl)
 {
     OutNewId.Invalidate();
     OutNewFilePath.Empty();
@@ -912,14 +1010,37 @@ bool FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset(const FString& So
         serializer->UpdateFieldsInPlace(newContents, fieldUpdates);
     }
 
-    // Write the new file
-    if (!WriteRawFileContents(OutNewFilePath, newContents))
+    // Write the new file. Suppress the inner broadcast, 
+    // this method emits a single Created event below carrying the duplicate's freshly generated GUID.
+    if (!WriteRawFileContents(OutNewFilePath, newContents, true, false))
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset: Failed to write new file at FilePath(%s)"), *OutNewFilePath);
         OutNewId.Invalidate();
         OutNewFilePath.Empty();
         return false;
     }
+
+#if WITH_EDITOR
+    // Mark the new path for add in source control. 
+    // The bridge is bound by the editor module in SGDTAEditorModule.cpp (StartupModule) 
+    // and it is null in cooked builds and when the editor module is not loaded, otherwise exit.
+    if (bHandleSourceControl && SOURCE_CONTROL_BRIDGE)
+    {
+        // ISourceControlModule is on the game thread.
+        // Off thread writers must pass bHandleSourceControl=false if they want a non-game thread write
+        check(IsInGameThread());
+
+        if (!SOURCE_CONTROL_BRIDGE->MarkForAdd(OutNewFilePath))
+        {
+            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                TEXT("FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset: Mark for add failed for OutNewFilePath(%s); continuing"), *OutNewFilePath);
+        }
+    }
+#endif // WITH_EDITOR
+
+    // A duplicate produces a brand-new file with a new GUID: report it as Created. Outside the
+    // WITH_EDITOR/SCC guard so it fires in all build configs independent of source-control state.
+    ON_FILE_CHANGED.Broadcast(ESGDynamicTextAssetFileChangeKind::Created, OutNewFilePath, OutNewId.GetGuid());
 
     UE_LOG(LogSGDynamicTextAssetsRuntime, Log, TEXT("FSGDynamicTextAssetFileManager::Duplicated dynamic text asset: UserFacingId(%s) -> NewUserFacingId(%s) | (NewID(%s))"),
         *fileInfo.UserFacingId, *NewUserFacingId, *OutNewId.ToString());
@@ -928,7 +1049,7 @@ bool FSGDynamicTextAssetFileManager::DuplicateDynamicTextAsset(const FString& So
 }
 
 #if WITH_EDITOR
-bool FSGDynamicTextAssetFileManager::ConvertFileFormat(const FString& SourceFilePath, const FString& TargetExtension, FString& OutNewFilePath)
+bool FSGDynamicTextAssetFileManager::ConvertFileFormat(const FString& SourceFilePath, const FString& TargetExtension, FString& OutNewFilePath, bool bHandleSourceControl)
 {
     OutNewFilePath.Empty();
 
@@ -1068,21 +1189,51 @@ bool FSGDynamicTextAssetFileManager::ConvertFileFormat(const FString& SourceFile
         return false;
     }
 
-    // Write the new file
-    if (!WriteRawFileContents(OutNewFilePath, targetContents))
+    // Write the new file. Suppress the inner broadcast; convert is a move and reports its own
+    // Renamed events (one per path) after the conversion completes.
+    if (!WriteRawFileContents(OutNewFilePath, targetContents, /*bAutoCheckOut*/ true, /*bBroadcastChange*/ false))
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Error, TEXT("FSGDynamicTextAssetFileManager::ConvertFileFormat: Failed to write target file at FilePath(%s)"), *OutNewFilePath);
         OutNewFilePath.Empty();
         return false;
     }
 
-    // 6. Delete the old file
-    if (!DeleteDynamicTextAssetFile(SourceFilePath))
+    // 6. Delete the old file. Suppress the inner Deleted broadcast, 
+    // this is half of a move and is reported as Renamed below.
+    if (!DeleteDynamicTextAssetFile(SourceFilePath, false))
     {
         UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
             TEXT("FSGDynamicTextAssetFileManager::ConvertFileFormat: Wrote new file but failed to delete old file at SourceFilePath(%s)"), *SourceFilePath);
         // Still return true since the new file was written successfully
     }
+
+    // Mark the new path for delete and for the new path add, in source control. 
+    // The bridge is bound by the editor module in SGDTAEditorModule.cpp (StartupModule) 
+    // and it is null in cooked builds and when the editor module is not loaded, otherwise exit.
+    if (bHandleSourceControl && SOURCE_CONTROL_BRIDGE)
+    {
+        // ISourceControlModule is on the game thread.
+        // Off thread writers must pass bHandleSourceControl=false if they want a non-game thread write
+        check(IsInGameThread());
+
+        if (!SOURCE_CONTROL_BRIDGE->MarkForDelete(SourceFilePath))
+        {
+            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                TEXT("FSGDynamicTextAssetFileManager::ConvertFileFormat: Mark for delete failed for SourceFilePath(%s); continuing"), *SourceFilePath);
+        }
+        if (!SOURCE_CONTROL_BRIDGE->MarkForAdd(OutNewFilePath))
+        {
+            UE_LOG(LogSGDynamicTextAssetsRuntime, Warning,
+                TEXT("FSGDynamicTextAssetFileManager::ConvertFileFormat: Mark for add failed for OutNewFilePath(%s); continuing"), *OutNewFilePath);
+        }
+    }
+
+    // A format conversion is a move (old extension -> new extension): report it as Renamed once
+    // for the old path and once for the new path, carrying the GUID preserved through the
+    // round-trip. The broadcast itself is not source-control gated.
+    const FGuid convertedGuid = fileInfo.Id.GetGuid();
+    ON_FILE_CHANGED.Broadcast(ESGDynamicTextAssetFileChangeKind::Renamed, SourceFilePath, convertedGuid);
+    ON_FILE_CHANGED.Broadcast(ESGDynamicTextAssetFileChangeKind::Renamed, OutNewFilePath, convertedGuid);
 
     UE_LOG(LogSGDynamicTextAssetsRuntime, Log,
         TEXT("FSGDynamicTextAssetFileManager::ConvertFileFormat: Converted '%s' from %s to %s -> FilePath(%s)"),

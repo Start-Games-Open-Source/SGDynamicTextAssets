@@ -13,8 +13,14 @@
 #include "Editor/SSGDTASaveDialog.h"
 #include "Interfaces/IMainFrameModule.h"
 #include "Editor/SSGDTARawView.h"
+#include "Editor/SSGDynamicTextAssetIcon.h"
+#include "Browser/SSGDTASCCBadge.h"
+#include "ISourceControlModule.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlState.h"
 #include "Framework/Docking/TabManager.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Management/SGDTAFileManager.h"
 #include "Management/SGDynamicTextAssetFileInfo.h"
@@ -23,14 +29,17 @@
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "ReferenceViewer/SSGDTAReferenceViewer.h"
+#include "RevisionControlStyle/RevisionControlStyle.h"
 #include "Serialization/SGDTAJsonSerializer.h"
 #include "SGDTAEditorLogs.h"
 #include "SourceCodeNavigation.h"
 #include "Statics/SGDynamicTextAssetStatics.h"
 #include "Styling/AppStyle.h"
 #include "UObject/Package.h"
+#include "Utilities/SGDTASCCStatusCache.h"
 #include "Utilities/SGDTASourceControl.h"
 #include "Utilities/SGDTAEditorStatics.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/SWindow.h"
 #include "Widgets/Images/SImage.h"
@@ -38,6 +47,7 @@
 #include "Widgets/Input/SHyperlink.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
+#include "Widgets/SOverlay.h"
 #include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "SGDynamicTextAssetEditorToolkit"
@@ -45,6 +55,9 @@
 // Static deduplication map definition
 TMap<FString, TWeakPtr<FSGDynamicTextAssetEditorToolkit>> FSGDynamicTextAssetEditorToolkit::OPEN_EDITORS;
 TMap<FString, FSGDynamicTextAssetEditorToolkit::FDirtyObjectCacheEntry> FSGDynamicTextAssetEditorToolkit::DIRTY_OBJECT_CACHE;
+
+// Coarse dirty-state refresh signal (see header). Program-lifetime static.
+FOnDirtyStateChanged FSGDynamicTextAssetEditorToolkit::OnDirtyStateChanged;
 
 FSGDynamicTextAssetEditorToolkit::FSGDynamicTextAssetEditorToolkit()
 {
@@ -55,6 +68,13 @@ FSGDynamicTextAssetEditorToolkit::~FSGDynamicTextAssetEditorToolkit()
     if (GEditor)
     {
         GEditor->UnregisterForUndo(this);
+    }
+
+    // Guarded: the module can tear the SCC status cache down before this toolkit is destroyed during shutdown
+    if (SCCStatusChangedHandle.IsValid() && FSGDynamicTextAssetSCCStatusCache::IsAvailable())
+    {
+        FSGDynamicTextAssetSCCStatusCache::Get().OnStatusChanged.Remove(SCCStatusChangedHandle);
+        SCCStatusChangedHandle.Reset();
     }
 
     // Cache the dirty object so it survives GC until the editor is reopened or changes are discarded
@@ -142,61 +162,99 @@ void FSGDynamicTextAssetEditorToolkit::PostRegenerateMenusAndToolbars()
         return;
     }
     const FText description = serializer->GetFormatDescription();
+
+    // Compute the current source control tooltip once, at build time. PostRegenerateMenusAndToolbars
+    // rebuilds this widget on every toolbar regeneration, and the STORY-017 status-cache subscription
+    // triggers a regeneration whenever the file's source control status changes, so a build-time
+    // tooltip stays current without any per-paint bound attribute. Empty means no hover text (a clean
+    // file or source control disabled).
+    FText sourceControlTooltip = FText::GetEmpty();
+    if (FSGDynamicTextAssetSourceControl::IsSourceControlEnabled())
+    {
+        const FSourceControlStatePtr sourceControlState =
+            ISourceControlModule::Get().GetProvider().GetState(FilePath, EStateCacheUsage::Use);
+        if (sourceControlState.IsValid())
+        {
+            sourceControlTooltip = sourceControlState->GetDisplayTooltip();
+        }
+    }
+
     AddToolbarWidget(
-        SNew(SVerticalBox)
+        SNew(SHorizontalBox)
 
-        + SVerticalBox::Slot()
-        .AutoHeight()
-        .Padding(0.0f, 0.0f, 15.0f, 0.0f)
+        // File type and version text.
+        + SHorizontalBox::Slot()
+        .AutoWidth()
+        .VAlign(VAlign_Center)
         [
-            SNew(SHorizontalBox)
+            SNew(SVerticalBox)
 
-            // "File Type:" text
-            + SHorizontalBox::Slot()
-            .AutoWidth()
-            .VAlign(VAlign_Center)
-            .Padding(0)
+            + SVerticalBox::Slot()
+            .AutoHeight()
+            .Padding(0.0f, 0.0f, 0.0f, 0.0f)
+            [
+                SNew(SHorizontalBox)
+
+                // "File Type:" text
+                + SHorizontalBox::Slot()
+                .AutoWidth()
+                .VAlign(VAlign_Center)
+                .Padding(0)
+                [
+                    SNew(STextBlock)
+                    .Text(INVTEXT("File Type: "))
+                    .ColorAndOpacity(FSlateColor::UseSubduedForeground())
+                ]
+
+                // File type format text
+                + SHorizontalBox::Slot()
+                .AutoWidth()
+                .VAlign(VAlign_Center)
+                .Padding(0)
+                [
+                  SNew(STextBlock)
+                  .Text(serializer->GetFormatName())
+                  .ColorAndOpacity(FSlateColor::UseForeground())
+                ]
+
+                // Help icon to signal hover will tell you what it is
+                + SHorizontalBox::Slot()
+                .AutoWidth()
+                .VAlign(VAlign_Center)
+                .Padding(5.0f, 0.0f, 0.0f, 0.0f)
+                [
+                    SNew(SImage)
+                    .Image(FAppStyle::GetBrush("Icons.Help"))
+                    .ColorAndOpacity(FSlateColor::UseSubduedForeground())
+                    .ToolTipText(description)
+                ]
+            ]
+
+            // Print the version below the type and help icon
+            + SVerticalBox::Slot()
+            .AutoHeight()
+            .HAlign(HAlign_Right)
+            .Padding(0.0f, 0.0f, 0.0f, 0.0f)
             [
                 SNew(STextBlock)
-                .Text(INVTEXT("File Type: "))
+                .Font(FCoreStyle::GetDefaultFontStyle("Italic", 8))
                 .ColorAndOpacity(FSlateColor::UseSubduedForeground())
-            ]
-
-            // File type format text
-            + SHorizontalBox::Slot()
-            .AutoWidth()
-            .VAlign(VAlign_Center)
-            .Padding(0)
-            [
-              SNew(STextBlock)
-              .Text(serializer->GetFormatName())
-              .ColorAndOpacity(FSlateColor::UseForeground())
-            ]
-
-            // Help icon to signal hover will tell you what it is
-            + SHorizontalBox::Slot()
-            .AutoWidth()
-            .VAlign(VAlign_Center)
-            .Padding(5.0f, 0.0f, 0.0f, 0.0f)
-            [
-                SNew(SImage)
-                .Image(FAppStyle::GetBrush("Icons.Help"))
-                .ColorAndOpacity(FSlateColor::UseSubduedForeground())
-                .ToolTipText(description)
+                .Text(FText::Format(INVTEXT("Version: {0}"), serializer->GetFileFormatVersion().ToText()))
+                .ToolTipText(INVTEXT("The latest file format version that this file type is at.\nThis may be different from this specific DTA's file format version."))
             ]
         ]
 
-        // Print the version below the type and help icon
-        + SVerticalBox::Slot()
-        .AutoHeight()
-        .HAlign(HAlign_Right)
-        .Padding(0.0f, 0.0f, 15.0f, 0.0f)
+        // Source control status icon, placed after the file type information. Standalone (no file-type
+        // icon): the badge renders the provider status icon and self-collapses for a clean or untracked
+        // file. The build-time tooltip reads out the current status on hover.
+        + SHorizontalBox::Slot()
+        .AutoWidth()
+        .VAlign(VAlign_Center)
+        .Padding(5.0f, 0.0f)
         [
-            SNew(STextBlock)
-            .Font(FCoreStyle::GetDefaultFontStyle("Italic", 8))
-            .ColorAndOpacity(FSlateColor::UseSubduedForeground())
-            .Text(FText::Format(INVTEXT("Version: {0}"), serializer->GetFileFormatVersion().ToText()))
-            .ToolTipText(INVTEXT("The latest file format version that this file type is at.\nThis may be different from this specific DTA's file format version."))
+            SNew(SSGDynamicTextAssetSCCBadge)
+            .FilePath(FilePath)
+            .ToolTipText(sourceControlTooltip)
         ]
     );
 
@@ -334,11 +392,6 @@ void FSGDynamicTextAssetEditorToolkit::ExtendToolbar()
     const TSharedRef<FUICommandList> commands = GetToolkitCommands();
 
     commands->MapAction(
-        FSGDynamicTextAssetEditorCommands::Get().Revert,
-        FExecuteAction::CreateLambda([this]() { LoadFromFile(); }),
-        FCanExecuteAction::CreateSP(this, &FSGDynamicTextAssetEditorToolkit::HasUnsavedChanges));
-
-    commands->MapAction(
         FSGDynamicTextAssetEditorCommands::Get().ShowInExplorer,
         FExecuteAction::CreateLambda([this]()
         {
@@ -361,6 +414,29 @@ void FSGDynamicTextAssetEditorToolkit::ExtendToolbar()
             }
         }));
 
+    commands->MapAction(
+        FSGDynamicTextAssetEditorCommands::Get().SourceControlCheckOut,
+        FExecuteAction::CreateSP(this, &FSGDynamicTextAssetEditorToolkit::Internal_CheckOutFile),
+        FCanExecuteAction::CreateSP(this, &FSGDynamicTextAssetEditorToolkit::CanCheckOutFile));
+
+    commands->MapAction(
+        FSGDynamicTextAssetEditorCommands::Get().SourceControlMarkForAdd,
+        FExecuteAction::CreateSP(this, &FSGDynamicTextAssetEditorToolkit::Internal_MarkForAddFile),
+        FCanExecuteAction::CreateSP(this, &FSGDynamicTextAssetEditorToolkit::CanMarkForAddFile));
+
+    commands->MapAction(
+        FSGDynamicTextAssetEditorCommands::Get().SourceControlRevert,
+        FExecuteAction::CreateSP(this, &FSGDynamicTextAssetEditorToolkit::Internal_RevertFile),
+        FCanExecuteAction::CreateSP(this, &FSGDynamicTextAssetEditorToolkit::CanRevertFile));
+
+    // Subscribe to the shared SCC status cache so Check Out enables/disables live as the cache changes,
+    // without the toolbar being reopened. AddSP binds weakly; the handle is removed in the destructor.
+    if (FSGDynamicTextAssetSCCStatusCache::IsAvailable())
+    {
+        SCCStatusChangedHandle = FSGDynamicTextAssetSCCStatusCache::Get().OnStatusChanged.AddSP(
+            this, &FSGDynamicTextAssetEditorToolkit::HandleSCCStatusChanged);
+    }
+
     TSharedPtr<FExtender> toolbarExtender = MakeShared<FExtender>();
     toolbarExtender->AddToolBarExtension(
         "Asset",
@@ -375,12 +451,6 @@ void FSGDynamicTextAssetEditorToolkit::FillToolbar(FToolBarBuilder& ToolbarBuild
 {
     ToolbarBuilder.BeginSection("DynamicTextAsset");
     {
-        ToolbarBuilder.AddToolBarButton(FSGDynamicTextAssetEditorCommands::Get().Revert,
-            NAME_None, TAttribute<FText>(), TAttribute<FText>(),
-            FSlateIcon(FAppStyle::GetAppStyleSetName(), "GenericCommands.Undo"));
-
-        ToolbarBuilder.AddSeparator();
-
         ToolbarBuilder.AddToolBarButton(FSGDynamicTextAssetEditorCommands::Get().ShowInExplorer,
             NAME_None, TAttribute<FText>(), TAttribute<FText>(),
             FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.FolderOpen"));
@@ -390,6 +460,211 @@ void FSGDynamicTextAssetEditorToolkit::FillToolbar(FToolBarBuilder& ToolbarBuild
             FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Search"));
     }
     ToolbarBuilder.EndSection();
+
+    // Source control affordances. The whole section is skipped (not merely disabled) when source
+    // control is off, mirroring how the browser omits its source-control submenu entirely.
+    if (FSGDynamicTextAssetSourceControl::IsSourceControlEnabled())
+    {
+        ToolbarBuilder.BeginSection("RevisionControl");
+        {
+            // Check Out is a checkout / lock-model action. It is omitted (not merely disabled) on
+            // modify-in-place providers such as Git, where there is nothing to check out; Perforce
+            // and Subversion still show it. Revert stays for every provider.
+            if (FSGDynamicTextAssetSourceControl::ProviderUsesCheckout())
+            {
+                ToolbarBuilder.AddToolBarButton(FSGDynamicTextAssetEditorCommands::Get().SourceControlCheckOut,
+                    NAME_None, TAttribute<FText>(), TAttribute<FText>(),
+                    FSlateIcon(FRevisionControlStyleManager::GetStyleSetName(), "RevisionControl.Actions.CheckOut"));
+            }
+
+            // Mark For Add is emitted unconditionally: staging / adding an untracked file applies to
+            // every provider, including modify-in-place providers such as Git where Check Out is omitted.
+            // Its enablement (CanMarkForAddFile) gates on the file being NotInSourceControl.
+            ToolbarBuilder.AddToolBarButton(FSGDynamicTextAssetEditorCommands::Get().SourceControlMarkForAdd,
+                NAME_None, TAttribute<FText>(), TAttribute<FText>(),
+                FSlateIcon(FRevisionControlStyleManager::GetStyleSetName(), "RevisionControl.Actions.Add"));
+
+            ToolbarBuilder.AddToolBarButton(FSGDynamicTextAssetEditorCommands::Get().SourceControlRevert,
+                NAME_None, TAttribute<FText>(), TAttribute<FText>(),
+                FSlateIcon(FRevisionControlStyleManager::GetStyleSetName(), "RevisionControl.Actions.Revert"));
+        }
+        ToolbarBuilder.EndSection();
+    }
+}
+
+void FSGDynamicTextAssetEditorToolkit::Internal_CheckOutFile()
+{
+    if (FilePath.IsEmpty())
+    {
+        return;
+    }
+
+    // CheckOutFile runs the provider operation synchronously, so we can act on the real result here.
+    const bool bSucceeded = FSGDynamicTextAssetSourceControl::CheckOutFile(FilePath);
+
+    // Invalidate the cached status so the next CanExecute evaluation reflects the new state. The cache
+    // broadcast from this invalidation also refreshes the toolbar, disabling Check Out once checked out.
+    if (FSGDynamicTextAssetSCCStatusCache::IsAvailable())
+    {
+        FSGDynamicTextAssetSCCStatusCache::Get().InvalidateCachePath(FilePath);
+    }
+
+    FNotificationInfo notification(bSucceeded
+        ? INVTEXT("Checked out file from source control.")
+        : INVTEXT("Failed to check out file from source control. Check the log for details."));
+    notification.ExpireDuration = 4.0f;
+    notification.Image = bSucceeded
+        ? FAppStyle::GetBrush("Icons.SuccessWithColor")
+        : FAppStyle::GetBrush("Icons.ErrorWithColor");
+    FSlateNotificationManager::Get().AddNotification(notification);
+
+    if (bSucceeded)
+    {
+        UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Checked out file from source control: %s"), *FilePath);
+    }
+    else
+    {
+        UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("Failed to check out file from source control: %s"), *FilePath);
+    }
+}
+
+bool FSGDynamicTextAssetEditorToolkit::CanCheckOutFile() const
+{
+    // Read the live cache each evaluation so enablement tracks the file's current status.
+    return FSGDynamicTextAssetSourceControl::IsSourceControlEnabled()
+        && FSGDynamicTextAssetSCCStatusCache::IsAvailable()
+        && FSGDynamicTextAssetSCCStatusCache::Get().GetCachedStatus(FilePath)
+            == ESGDynamicTextAssetSourceControlStatus::NotCheckedOut;
+}
+
+void FSGDynamicTextAssetEditorToolkit::Internal_MarkForAddFile()
+{
+    if (FilePath.IsEmpty())
+    {
+        return;
+    }
+
+    // MarkForAdd runs the provider operation synchronously, so we can act on the real result here.
+    const bool bSucceeded = FSGDynamicTextAssetSourceControl::MarkForAdd(FilePath);
+
+    // Invalidate the cached status so the next CanExecute evaluation reflects the new state. The cache
+    // broadcast from this invalidation also refreshes the toolbar, disabling Mark For Add once added.
+    if (FSGDynamicTextAssetSCCStatusCache::IsAvailable())
+    {
+        FSGDynamicTextAssetSCCStatusCache::Get().InvalidateCachePath(FilePath);
+    }
+
+    FNotificationInfo notification(bSucceeded
+        ? INVTEXT("Marked file for add in source control.")
+        : INVTEXT("Failed to mark file for add in source control. Check the log for details."));
+    notification.ExpireDuration = 4.0f;
+    notification.Image = bSucceeded
+        ? FAppStyle::GetBrush("Icons.SuccessWithColor")
+        : FAppStyle::GetBrush("Icons.ErrorWithColor");
+    FSlateNotificationManager::Get().AddNotification(notification);
+
+    if (bSucceeded)
+    {
+        UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Marked file for add in source control: %s"), *FilePath);
+    }
+    else
+    {
+        UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("Failed to mark file for add in source control: %s"), *FilePath);
+    }
+}
+
+bool FSGDynamicTextAssetEditorToolkit::CanMarkForAddFile() const
+{
+    // Read the live cache each evaluation so enablement tracks the file's current status. Untracked-only:
+    // Mark For Add lights up only for a NotInSourceControl file, matching the browser Mark For Add enable
+    // condition so the two surfaces stay consistent.
+    return FSGDynamicTextAssetSourceControl::IsSourceControlEnabled()
+        && FSGDynamicTextAssetSCCStatusCache::IsAvailable()
+        && FSGDynamicTextAssetSCCStatusCache::Get().GetCachedStatus(FilePath)
+            == ESGDynamicTextAssetSourceControlStatus::NotInSourceControl;
+}
+
+void FSGDynamicTextAssetEditorToolkit::Internal_RevertFile()
+{
+    if (FilePath.IsEmpty())
+    {
+        return;
+    }
+
+    // Confirmation dialog naming the file; bail if the user declines. Copy is kept consistent with the
+    // browser Revert confirmation so the two surfaces do not drift.
+    const FText confirmMessage = FText::Format(
+        INVTEXT("Revert {0}? This discards all local changes and cannot be undone."),
+        FText::FromString(FPaths::GetCleanFilename(FilePath)));
+    const EAppReturnType::Type choice = FMessageDialog::Open(EAppMsgType::YesNo,
+        confirmMessage, INVTEXT("Revert File"));
+    if (choice != EAppReturnType::Yes)
+    {
+        return;
+    }
+
+    // RevertFile runs the provider operation synchronously, so we can act on the real result here.
+    const bool bSucceeded = FSGDynamicTextAssetSourceControl::RevertFile(FilePath);
+
+    if (bSucceeded)
+    {
+        // This toolkit is the open editor for the file, so reload it directly rather than routing through
+        // the static NotifyFileReverted (which only exists to find an open editor from an out-of-editor
+        // caller). ReloadFromDisk re-reads disk, rebinds the Details view, refreshes the raw view, and
+        // clears the dirty flag with no save prompt.
+        ReloadFromDisk();
+
+        // Invalidate the cached status so the next CanExecute evaluation reflects the reverted state. The
+        // cache broadcast from this invalidation also refreshes the toolbar, disabling Revert once reverted.
+        if (FSGDynamicTextAssetSCCStatusCache::IsAvailable())
+        {
+            FSGDynamicTextAssetSCCStatusCache::Get().InvalidateCachePath(FilePath);
+        }
+    }
+
+    FNotificationInfo notification(bSucceeded
+        ? INVTEXT("Reverted file to the depot version.")
+        : INVTEXT("Failed to revert file. Check the log for details."));
+    notification.ExpireDuration = 4.0f;
+    notification.Image = bSucceeded
+        ? FAppStyle::GetBrush("Icons.SuccessWithColor")
+        : FAppStyle::GetBrush("Icons.ErrorWithColor");
+    FSlateNotificationManager::Get().AddNotification(notification);
+
+    if (bSucceeded)
+    {
+        UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("Reverted file to the depot version: %s"), *FilePath);
+    }
+    else
+    {
+        UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("Failed to revert file: %s"), *FilePath);
+    }
+}
+
+bool FSGDynamicTextAssetEditorToolkit::CanRevertFile() const
+{
+    // Read the live cache each evaluation so enablement tracks the file's current status. The Revert set is
+    // {Added, ModifiedLocally}: the file must have actual local changes to revert. A clean checkout now maps
+    // to CheckedOut (see GetFileStatus) and is deliberately excluded so Revert does not light up with nothing
+    // to discard; a genuinely modified checked-out file maps to ModifiedLocally and still enables.
+    // MarkedForDelete is omitted here because a single open-file editor never reaches that state.
+    if (!FSGDynamicTextAssetSourceControl::IsSourceControlEnabled()
+        || !FSGDynamicTextAssetSCCStatusCache::IsAvailable())
+    {
+        return false;
+    }
+
+    const ESGDynamicTextAssetSourceControlStatus status =
+        FSGDynamicTextAssetSCCStatusCache::Get().GetCachedStatus(FilePath);
+
+    return status == ESGDynamicTextAssetSourceControlStatus::Added
+        || status == ESGDynamicTextAssetSourceControlStatus::ModifiedLocally;
+}
+
+void FSGDynamicTextAssetEditorToolkit::HandleSCCStatusChanged()
+{
+    // Regenerate the toolbar so Check Out, Mark For Add, and Revert re-evaluate their CanExecute predicates against the fresh cache.
+    RegenerateMenusAndToolbars();
 }
 
 void FSGDynamicTextAssetEditorToolkit::ConstructParentClassHyperlink()
@@ -640,7 +915,9 @@ bool FSGDynamicTextAssetEditorToolkit::SaveToFile(bool bSkipValidation)
         }
     }
 
-    // Source control auto-checkout
+    // Source control pre-flight: block the save if the file is checked out by another
+    // user (a dialog is more helpful here than a silent log). The actual checkout is
+    // now performed inside WriteRawFileContents via the default bAutoCheckOut=true.
     if (FSGDynamicTextAssetSourceControl::IsSourceControlEnabled())
     {
         FString otherUser;
@@ -653,17 +930,13 @@ bool FSGDynamicTextAssetEditorToolkit::SaveToFile(bool bSkipValidation)
             UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("%s"), *errorMessage);
             return false;
         }
-
-        if (!FSGDynamicTextAssetSourceControl::CheckOutFile(FilePath))
-        {
-            UE_LOG(LogSGDynamicTextAssetsEditor, Warning,
-                TEXT("Failed to check out file from source control: %s"), *FilePath);
-            // Continue anyway  - user may want to save locally
-        }
     }
 
-    // Write file
-    if (!FSGDynamicTextAssetFileManager::WriteRawFileContents(FilePath, fileOutput))
+    // Write file (auto-checkout of an existing file happens here via bAutoCheckOut=true).
+    // Pass the edited asset's GUID so the ON_FILE_CHANGED broadcast carries it (Modified for an
+    // existing file, Created for a new one); the direct write keeps its default broadcast.
+    if (!FSGDynamicTextAssetFileManager::WriteRawFileContents(FilePath, fileOutput, /*bAutoCheckOut*/ true,
+        /*bBroadcastChange*/ true, provider->GetDynamicTextAssetId().GetGuid()))
     {
         UE_LOG(LogSGDynamicTextAssetsEditor, Error, TEXT("Failed to write file: %s"), *FilePath);
         return false;
@@ -884,8 +1157,11 @@ bool FSGDynamicTextAssetEditorToolkit::HandleCanCloseEditor()
                             if (serializer.IsValid())
                             {
                                 FString serializedContents;
+                                // Pass the asset GUID so the ON_FILE_CHANGED broadcast from this
+                                // direct write carries it (Modified/Created keyed by pre-existence).
                                 if (serializer->SerializeProvider(provider, serializedContents)
-                                    && FSGDynamicTextAssetFileManager::WriteRawFileContents(item->AbsoluteFilePath, serializedContents))
+                                    && FSGDynamicTextAssetFileManager::WriteRawFileContents(item->AbsoluteFilePath, serializedContents,
+                                        /*bAutoCheckOut*/ true, /*bBroadcastChange*/ true, provider->GetDynamicTextAssetId().GetGuid()))
                                 {
                                     bSaved = true;
                                 }
@@ -955,6 +1231,10 @@ bool FSGDynamicTextAssetEditorToolkit::HandleCanCloseEditor()
                 }
             }
 
+            // Cover the bulk cache empty above (which bypasses MarkClean) so cached-dirty
+            // stars re-query and clear; no stale star lingers on tiles after shutdown-save.
+            OnDirtyStateChanged.Broadcast();
+
             return true;
         }
         case ESGDTASaveDialogResult::DontSave:
@@ -970,6 +1250,10 @@ bool FSGDynamicTextAssetEditorToolkit::HandleCanCloseEditor()
                     toolkit->MarkClean();
                 }
             }
+
+            // Cover the bulk cache empty above (which bypasses MarkClean) so cached-dirty
+            // stars re-query and clear after a discard.
+            OnDirtyStateChanged.Broadcast();
 
             return true;
         }
@@ -1007,6 +1291,9 @@ void FSGDynamicTextAssetEditorToolkit::MarkDirty()
     {
         bHasUnsavedChanges = true;
         RegenerateMenusAndToolbars();
+
+        // Notify observers (browser tile dirty badges) to re-query on the clean->dirty transition
+        OnDirtyStateChanged.Broadcast();
     }
 }
 
@@ -1014,6 +1301,9 @@ void FSGDynamicTextAssetEditorToolkit::MarkClean()
 {
     bHasUnsavedChanges = false;
     RegenerateMenusAndToolbars();
+
+    // Notify observers (browser tile dirty badges) to re-query on the transition to clean
+    OnDirtyStateChanged.Broadcast();
 }
 
 void FSGDynamicTextAssetEditorToolkit::OnPropertyChanged(const FPropertyChangedEvent& PropertyChangedEvent)
@@ -1205,7 +1495,53 @@ void FSGDynamicTextAssetEditorToolkit::NotifyFileDeleted(const FString& InFilePa
     DIRTY_OBJECT_CACHE.Remove(InFilePath);
     toolkit->CloseWindow(EAssetEditorCloseReason::AssetUnloadingOrInvalid);
 
+    // The file (and any dirty state for it) is gone; tell observers to re-query so no stale star lingers
+    OnDirtyStateChanged.Broadcast();
+
     UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("NotifyFileDeleted: closed editor for %s"), *InFilePath);
+}
+
+void FSGDynamicTextAssetEditorToolkit::NotifyFileReverted(const FString& InFilePath)
+{
+    TWeakPtr<FSGDynamicTextAssetEditorToolkit>* existing = OPEN_EDITORS.Find(InFilePath);
+    if (!existing || !existing->IsValid())
+    {
+        return;
+    }
+
+    TSharedPtr<FSGDynamicTextAssetEditorToolkit> toolkit = existing->Pin();
+    if (!toolkit.IsValid())
+    {
+        return;
+    }
+
+    toolkit->ReloadFromDisk();
+
+    UE_LOG(LogSGDynamicTextAssetsEditor, Log, TEXT("NotifyFileReverted: reloaded editor for %s"), *InFilePath);
+}
+
+void FSGDynamicTextAssetEditorToolkit::ReloadFromDisk()
+{
+    // Re-read FilePath into EditedDynamicTextAsset. LoadFromFile reuses the existing in-memory
+    // object when the class is unchanged and already clears any cached dirty object for this path.
+    if (!LoadFromFile())
+    {
+        UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("ReloadFromDisk: failed to reload %s"), *FilePath);
+        return;
+    }
+
+    // Force the Details view to rebind to the reloaded object. LoadFromFile calls SetObject without
+    // a forced refresh, so when the object identity is unchanged the panel would keep stale values.
+    if (DetailsView.IsValid())
+    {
+        DetailsView->SetObject(EditedDynamicTextAsset, /*bForceRefresh=*/true);
+    }
+
+    // Refresh the raw text tab so it reflects the reverted-to disk contents.
+    RefreshRawView();
+
+    // Ensure the dirty flag is clear; the reload matches disk exactly, so there is no save prompt.
+    MarkClean();
 }
 
 bool FSGDynamicTextAssetEditorToolkit::HasOpenEditorWithUnsavedChanges(const FString& InFilePath)

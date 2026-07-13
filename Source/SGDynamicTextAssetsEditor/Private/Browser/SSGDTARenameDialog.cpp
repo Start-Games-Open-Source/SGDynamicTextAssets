@@ -5,7 +5,6 @@
 #include "Management/SGDTAFileManager.h"
 #include "Management/SGDynamicTextAssetFileInfo.h"
 #include "SGDTAEditorLogs.h"
-#include "Utilities/SGDTASourceControl.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Layout/SBox.h"
@@ -227,19 +226,8 @@ FReply SSGDynamicTextAssetRenameDialog::OnRenameClicked()
 		return FReply::Handled();
 	}
 
-	// Source control: mark new file for add, old file for delete
-	if (FSGDynamicTextAssetSourceControl::IsSourceControlEnabled())
-	{
-		if (!FSGDynamicTextAssetSourceControl::MarkForAdd(NewFilePath))
-		{
-			UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("Failed to mark renamed file for add in source control: %s"), *NewFilePath);
-		}
-
-		if (!FSGDynamicTextAssetSourceControl::MarkForDelete(SourceFilePath))
-		{
-			UE_LOG(LogSGDynamicTextAssetsEditor, Warning, TEXT("Failed to mark old file for delete in source control: %s"), *SourceFilePath);
-		}
-	}
+	// Source control (mark old for delete, new for add) is handled internally by
+	// RenameDynamicTextAsset above (bHandleSourceControl defaults to true).
 
 	bWasConfirmed = true;
 
